@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ImageUp, RefreshCw, Save, Sparkles } from "lucide-react";
+import { FileUp, ImageUp, RefreshCw, Save, Sparkles } from "lucide-react";
 import { api } from "../lib/api";
 import type { JdAnalysis, Profile } from "../lib/types";
 import { Badge, Button, Card, Field, Input, SectionTitle, Spinner, TextArea } from "../components/ui";
@@ -14,6 +14,8 @@ export default function ProfilePage() {
   const [jdFile, setJdFile] = useState<File | null>(null);
   const [jdPreview, setJdPreview] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeBusy, setResumeBusy] = useState(false);
 
   useEffect(() => {
     api.getProfile().then(setProfile).catch(() => undefined);
@@ -72,6 +74,32 @@ export default function ProfilePage() {
     }
   }
 
+  async function parseResumePdf() {
+    if (!profile || !resumeFile) return;
+    setResumeBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await api.parseResume(resumeFile);
+      const merged: Profile = {
+        ...profile,
+        resume_text: res.text,
+        ...(res.parsed.target_role ? { target_role: res.parsed.target_role } : {}),
+        ...(res.parsed.target_direction ? { target_direction: res.parsed.target_direction } : {}),
+        ...(res.parsed.skills?.length ? { skills: res.parsed.skills } : {}),
+        ...(res.parsed.weak_areas ? { weak_areas: res.parsed.weak_areas } : {}),
+        ...(res.parsed.projects?.length ? { projects: res.parsed.projects } : {}),
+      };
+      const saved = await api.saveProfile(merged);
+      setProfile(saved);
+      setMessage("简历识别完成：目标岗位、技能栈与项目经历已自动填入，可直接检查微调。");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setResumeBusy(false);
+    }
+  }
+
   if (!profile) return <Spinner text="加载档案…" />;
   const jd = profile.jd_analysis || ({} as JdAnalysis);
   const projects = [...profile.projects, ...Array(Math.max(0, 3 - profile.projects.length)).fill(EMPTY_PROJECT)].slice(0, 3);
@@ -84,6 +112,39 @@ export default function ProfilePage() {
       {message && (
         <div className="rounded-[10px] border border-ok/25 bg-[#f0f9f2] px-4 py-2.5 text-[12.5px] text-ok">{message}</div>
       )}
+
+      <Card>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-[15px] font-bold">
+              <FileUp size={16} className="text-accent" />
+              上传 PDF 简历，自动识别
+            </div>
+            <p className="text-[12.5px] text-muted mt-1">
+              自动抽取目标岗位、技能栈、项目经历（含量化成果与深挖点），不用手动填。
+            </p>
+          </div>
+          <Button variant="primary" onClick={parseResumePdf} disabled={resumeBusy || !resumeFile}>
+            <Sparkles size={14} />
+            {resumeBusy ? "识别中…" : "识别简历并填入档案"}
+          </Button>
+        </div>
+        <div className="mt-4">
+          <label className="btn btn-secondary cursor-pointer">
+            <FileUp size={14} />
+            {resumeFile ? resumeFile.name : "选择 PDF 简历"}
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              className="hidden"
+              onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+            />
+          </label>
+          <p className="text-[11px] text-faint mt-1.5">
+            仅支持有文本层的 PDF；扫描件请用「JD 图片识别」（截图简历关键页）。
+          </p>
+        </div>
+      </Card>
 
       <Card>
         <div className="flex items-center justify-between">

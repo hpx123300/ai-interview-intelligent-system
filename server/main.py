@@ -99,6 +99,39 @@ async def jd_ocr(file: UploadFile = File(...)):
     return {"text": proc.stdout.strip(), "ocr": "vision"}
 
 
+# ---------------- 简历 PDF 自动识别 ----------------
+@app.post("/api/resume/parse")
+async def resume_parse(file: UploadFile = File(...)):
+    content = await file.read()
+    if not content:
+        return JSONResponse({"error": "文件内容为空"}, status_code=400)
+    try:
+        import io
+
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(content))
+        pages = []
+        for page in reader.pages:
+            try:
+                pages.append(page.extract_text() or "")
+            except Exception:
+                pass
+        text = "\n".join(pages).strip()
+    except Exception as exc:
+        return JSONResponse({"error": f"PDF 解析失败：{exc}"}, status_code=400)
+    if not text:
+        return JSONResponse(
+            {"error": "该 PDF 是扫描件/无文本层，无法直接提取；请把简历关键页截图后使用「JD 图片识别」"},
+            status_code=400,
+        )
+    try:
+        parsed = InterviewManager().parse_resume(text)
+    except Exception as exc:
+        return JSONResponse({"error": f"简历解析失败：{exc}"}, status_code=400)
+    return {"text": text[:6000], "parsed": parsed}
+
+
 # ---------------- 对话（SSE） ----------------
 class ChatRequest(BaseModel):
     message: str

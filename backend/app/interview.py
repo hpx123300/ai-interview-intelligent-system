@@ -257,6 +257,36 @@ class InterviewManager:
             "greeting": "你好，我是今天负责面试的面试官，我们直接开始吧——先做个简短的自我介绍？",
         }
 
+    def parse_resume(self, resume_text: str) -> dict:
+        """从简历文本提取结构化档案：目标岗位 / 技能栈 / 项目经历（LLM 失败回退空档案）。"""
+        system = """你是资深简历解析器。从候选人简历文本中提取结构化信息：
+- target_role：目标岗位（如"大模型应用开发实习生"；简历没写明就按经历推断）
+- target_direction：目标方向（如"大模型 / AI 应用开发"）
+- skills：技能栈列表（5-12 个，含具体技术，如 Python、RAG、PyTorch、FAISS、FastAPI）
+- weak_areas：可能薄弱/需要补强的方向（1-3 个，基于经历推断，没有就空数组）
+- projects：最多 3 个最有分量的项目，每个包含：
+  - name（项目名称）、tech_stack（技术栈）、description（项目做什么、你负责什么）、
+    metrics（量化成果，没有就写空串）、story（面试可深挖点：技术决策/难点/踩坑，没有就写空串）
+只输出 JSON：{"target_role": "...", "target_direction": "...", "skills": ["..."], "weak_areas": ["..."], "projects": [{"name": "...", "tech_stack": "...", "description": "...", "metrics": "...", "story": "..."}]}"""
+        try:
+            data = self._complete_json(system, f"简历文本：\n{resume_text[:8000]}", temperature=0.1)
+            projects = [p for p in (data.get("projects") or []) if p.get("name")][:3]
+            return {
+                "target_role": str(data.get("target_role", "") or ""),
+                "target_direction": str(data.get("target_direction", "") or ""),
+                "skills": [str(s) for s in (data.get("skills") or []) if str(s).strip()][:12],
+                "weak_areas": [str(s) for s in (data.get("weak_areas") or []) if str(s).strip()][:3],
+                "projects": projects,
+            }
+        except Exception:
+            return {
+                "target_role": "",
+                "target_direction": "",
+                "skills": [],
+                "weak_areas": [],
+                "projects": [],
+            }
+
     # ---------------- 出题（问题计划） ----------------
     def generate_question_list(
         self,

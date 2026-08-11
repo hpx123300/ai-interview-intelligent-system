@@ -182,6 +182,16 @@ export const api = {
     }
     return data;
   },
+  parseResume: async (file: File): Promise<{ text: string; parsed: Partial<Profile> }> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/resume/parse", { method: "POST", body: form });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(data?.error || `简历解析失败（${res.status}）`);
+    }
+    return data;
+  },
 };
 
 export function loadChatHistory(): ChatMessage[] {

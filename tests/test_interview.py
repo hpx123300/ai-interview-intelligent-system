@@ -280,6 +280,48 @@ def test_generate_interviewer_fallback():
     assert "Python" in interviewer["focus"]
 
 
+def test_parse_resume_extracts_profile():
+    """简历解析：LLM 成功时字段齐全；失败时回退空档案。"""
+    payload = json.dumps(
+        {
+            "target_role": "大模型应用开发实习生",
+            "target_direction": "大模型 / AI 应用开发",
+            "skills": ["Python", "RAG", "FAISS"],
+            "weak_areas": ["算法"],
+            "projects": [
+                {
+                    "name": "投满分 BERT 分类",
+                    "tech_stack": "PyTorch/BERT",
+                    "description": "中文新闻标题文本分类",
+                    "metrics": "F1 0.92",
+                    "story": "知识蒸馏与量化压缩",
+                }
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+    def fake_create(**kw):
+        return make_chat_response(payload)
+
+    patcher = patch_client(fake_create)
+    try:
+        parsed = InterviewManager().parse_resume("简历文本……")
+    finally:
+        patcher.stop()
+    assert parsed["target_role"] == "大模型应用开发实习生"
+    assert parsed["skills"] == ["Python", "RAG", "FAISS"]
+    assert parsed["projects"][0]["name"] == "投满分 BERT 分类"
+
+    patcher = patch_client(lambda **kw: make_chat_response("这不是 JSON"))
+    try:
+        fallback = InterviewManager().parse_resume("简历文本……")
+    finally:
+        patcher.stop()
+    assert fallback["projects"] == []
+    assert fallback["target_role"] == ""
+
+
 def test_compare_without_history():
     patcher = patch_client(lambda **kw: make_chat_response("{}"))
     try:
