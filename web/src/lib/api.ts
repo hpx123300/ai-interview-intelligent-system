@@ -113,6 +113,7 @@ export const api = {
 
   async streamChat(
     prompt: string,
+    sessionId: string,
     handlers: {
       onToken: (t: string) => void;
       onTool: (label: string) => void;
@@ -123,7 +124,7 @@ export const api = {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt }),
+      body: JSON.stringify({ message: prompt, session_id: sessionId }),
     });
     if (!res.ok || !res.body) {
       throw new Error(`对话请求失败（${res.status}）`);
@@ -162,6 +163,13 @@ export const api = {
     }
     return full;
   },
+
+  getChatHistory: (sessionId: string) =>
+    request<ChatMessage[]>(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`),
+  clearChatHistoryServer: (sessionId: string) =>
+    request<{ ok: boolean }>(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    }),
 };
 
 export function loadChatHistory(): ChatMessage[] {

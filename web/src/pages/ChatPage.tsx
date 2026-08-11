@@ -16,7 +16,28 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [toolLabel, setToolLabel] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string>(() => localStorage.getItem("chat_session") || "");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let sid = sessionId;
+    if (!sid) {
+      sid = newSessionId();
+      localStorage.setItem("chat_session", sid);
+      setSessionId(sid);
+    }
+    api
+      .getChatHistory(sid)
+      .then((rows) => {
+        if (rows.length > 0) {
+          const ui = rows.map(({ role, content }) => ({ role, content }));
+          setMessages(ui);
+          saveChatHistory(ui);
+        }
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,7 +53,7 @@ export default function ChatPage() {
     setBusy(true);
     const assistant: UiMessage = { role: "assistant", content: "" };
     try {
-      await api.streamChat(text, {
+      await api.streamChat(text, sessionId, {
         onToken: (t) => {
           assistant.content += t;
           setMessages((prev) => {
@@ -116,7 +137,13 @@ export default function ChatPage() {
           />
           {messages.length > 0 && (
             <button
-              onClick={() => {
+              onClick={async () => {
+                if (sessionId) {
+                  api.clearChatHistoryServer(sessionId).catch(() => undefined);
+                }
+                const sid = newSessionId();
+                localStorage.setItem("chat_session", sid);
+                setSessionId(sid);
                 clearChatHistory();
                 setMessages([]);
               }}
@@ -134,6 +161,14 @@ export default function ChatPage() {
       </div>
     </div>
   );
+}
+
+function newSessionId(): string {
+  try {
+    return `web-${crypto.randomUUID().slice(0, 8)}`;
+  } catch {
+    return `web-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+  }
 }
 
 function MessageBubble({ message }: { message: UiMessage }) {

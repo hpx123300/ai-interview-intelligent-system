@@ -22,6 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.app.agent.core import AgentError, MultiAgentHarness  # noqa: E402
 from backend.app.agent.memory import Memory  # noqa: E402
 from backend.app.cards import parse_trace_cards  # noqa: E402
+from backend.app.chat_history import clear_messages, load_messages, save_message  # noqa: E402
 from backend.app.db import init_db  # noqa: E402
 from backend.app.interview import DIRECTION_TOPICS, InterviewError, InterviewManager, _default_rubric  # noqa: E402
 from backend.app.interview_store import (  # noqa: E402
@@ -63,23 +64,28 @@ def health():
 # ---------------- 对话（SSE） ----------------
 class ChatRequest(BaseModel):
     message: str
+    session_id: str | None = None
 
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     if not req.message.strip():
         return JSONResponse({"error": "消息不能为空"}, status_code=400)
+    session_id = (req.session_id or "").strip() or f"web-{uuid.uuid4().hex[:8]}"
     try:
-        session_id = f"web-{uuid.uuid4().hex[:8]}"
         agent = MultiAgentHarness(memory=Memory(session_id, max_messages=40))
     except AgentError as exc:
         return _err(exc, 400)
+    save_message(session_id, "user", req.message.strip())
 
     def gen():
+        full = ""
         cards_sent = False
         try:
+            yield f"data: {json.dumps({'type': 'session', 'session_id': session_id}, ensure_ascii=False)}\n\n"
             for chunk in agent.chat_stream(req.message, on_tool=lambda name: None):
                 if chunk:
+                    full += chunk
                     yield f"data: {json.dumps({'type': 'token', 'text': chunk}, ensure_ascii=False)}\n\n"
             trace = list(agent.trace)
             if trace:
@@ -88,11 +94,25 @@ async def chat(req: ChatRequest):
             if cards:
                 cards_sent = True
                 yield f"data: {json.dumps({'type': 'cards', 'cards': cards}, ensure_ascii=False)}\n\n"
+            if full:
+                save_message(session_id, "assistant", full)
             yield "data: {\"type\": \"done\"}\n\n"
         except Exception as exc:  # noqa: BLE001
             yield f"data: {json.dumps({'type': 'error', 'error': str(exc)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ---------------- 对话历史 ----------------
+@app.get("/api/chat/history")
+def chat_history(session_id: str):
+    return load_messages(session_id, limit=100)
+
+
+@app.delete("/api/chat/history")
+def chat_history_clear(session_id: str):
+    clear_messages(session_id)
+    return {"ok": True}
 
 
 # ---------------- 档案 ----------------
