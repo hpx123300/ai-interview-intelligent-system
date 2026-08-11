@@ -7,9 +7,23 @@ from sqlalchemy import select
 from .db import Interview, InterviewQA, get_session
 
 
-def create_interview(interview_id: str, direction: str, profile_key: str = "local") -> None:
+def create_interview(
+    interview_id: str,
+    direction: str,
+    profile_key: str = "local",
+    plan: str = "",
+    prep: str = "",
+) -> None:
     with get_session() as session:
-        session.add(Interview(id=interview_id, direction=direction, profile_key=profile_key))
+        session.add(
+            Interview(
+                id=interview_id,
+                direction=direction,
+                profile_key=profile_key,
+                plan=plan,
+                prep=prep,
+            )
+        )
         session.commit()
 
 
@@ -24,6 +38,8 @@ def get_interview(interview_id: str) -> dict | None:
             "status": row.status,
             "score": row.score,
             "report": row.report,
+            "plan": row.plan,
+            "prep": row.prep,
             "created_at": row.created_at.isoformat(),
             "finished_at": row.finished_at.isoformat() if row.finished_at else "",
         }
@@ -47,6 +63,8 @@ def list_interviews(profile_key: str = "local", limit: int = 50) -> list[dict]:
             "direction": r.direction,
             "status": r.status,
             "score": r.score,
+            "plan": r.plan,
+            "prep": r.prep,
             "created_at": r.created_at.isoformat(),
             "finished_at": r.finished_at.isoformat() if r.finished_at else "",
         }
@@ -75,7 +93,12 @@ def save_qa(
     topic: str = "",
     level: str = "",
     hint: str = "",
+    difficulty: int = 0,
+    competency: str = "",
+    rubric: str = "[]",
+    seed_followups: str = "[]",
     answer: str = "",
+    answer_score: int = 0,
     feedback: str = "",
     followup: str = "",
     followup_answer: str = "",
@@ -89,7 +112,12 @@ def save_qa(
             topic=topic,
             level=level,
             hint=hint,
+            difficulty=difficulty,
+            competency=competency,
+            rubric=rubric,
+            seed_followups=seed_followups,
             answer=answer,
+            answer_score=answer_score,
             feedback=feedback,
             followup=followup,
             followup_answer=followup_answer,
@@ -104,6 +132,7 @@ def update_qa(
     qa_id: int,
     *,
     answer: str | None = None,
+    answer_score: int | None = None,
     feedback: str | None = None,
     followup: str | None = None,
     followup_answer: str | None = None,
@@ -115,6 +144,8 @@ def update_qa(
             return
         if answer is not None:
             row.answer = answer
+        if answer_score is not None:
+            row.answer_score = answer_score
         if feedback is not None:
             row.feedback = feedback
         if followup is not None:
@@ -144,7 +175,12 @@ def load_qa(interview_id: str) -> list[dict]:
             "topic": r.topic,
             "level": r.level,
             "hint": r.hint,
+            "difficulty": r.difficulty,
+            "competency": r.competency,
+            "rubric": r.rubric,
+            "seed_followups": r.seed_followups,
             "answer": r.answer,
+            "answer_score": r.answer_score,
             "feedback": r.feedback,
             "followup": r.followup,
             "followup_answer": r.followup_answer,

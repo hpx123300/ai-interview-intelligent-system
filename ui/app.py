@@ -308,7 +308,22 @@ def render_report(report: dict, comparison: dict | None = None) -> None:
         else:
             st.markdown('<div class="muted">首次完整面试，暂无历史场次可对比。</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title">面试官总结</div>', unsafe_allow_html=True)
+    comp_scores = report.get("competency_scores") or []
+    if comp_scores:
+        st.markdown('<div class="section-title">能力得分（0-5）</div>', unsafe_allow_html=True)
+        for c in comp_scores:
+            s = float(c.get("score", 0) or 0)
+            level = c.get("level", "")
+            level_label = {"strong": "扎实", "solid": "合格", "developing": "待练", "weak": "薄弱"}.get(level, level)
+            st.markdown(f'<div class="small" style="display:flex;justify-content:space-between"><span>{html.escape(str(c.get("competency", "")))} <span class="small">· {level_label}</span></span><span>{s}</span></div>', unsafe_allow_html=True)
+            st.progress(min(s, 5) / 5)
+        st.caption(f"有效作答覆盖率：{round(float(report.get('coverage_pct', 1.0) or 1.0) * 100)}%（未作答的能力不计入弱项）")
+
+    if report.get("summary"):
+        st.markdown('<div class="section-title">面试官总结</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="panel" style="font-size:13.5px;line-height:1.8">{html.escape(str(report.get("summary")))}</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">亮点 / 不足 / 缺失 / 建议</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="report-sec"><div class="title">亮点</div>' + _ul(report.get("highlights", [])) + "</div>", unsafe_allow_html=True)
@@ -316,6 +331,46 @@ def render_report(report: dict, comparison: dict | None = None) -> None:
     with c2:
         st.markdown('<div class="report-sec"><div class="title">缺失关键点</div>' + _ul(report.get("missing_points", [])) + "</div>", unsafe_allow_html=True)
         st.markdown('<div class="report-sec"><div class="title">改进建议</div>' + _ul(report.get("suggestions", [])) + "</div>", unsafe_allow_html=True)
+
+    lang = report.get("language_report") or {}
+    if lang:
+        st.markdown('<div class="section-title">表达报告（0-5）</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(
+                '<div class="small" style="display:flex;justify-content:space-between"><span>结构</span><span>{}</span></div>'.format(lang.get("structure_score", "—"))
+            )
+            st.markdown(
+                '<div class="small" style="display:flex;justify-content:space-between"><span>清晰</span><span>{}</span></div>'.format(lang.get("clarity_score", "—"))
+            )
+        with c2:
+            st.markdown(
+                '<div class="small" style="display:flex;justify-content:space-between"><span>简洁</span><span>{}</span></div>'.format(lang.get("conciseness_score", "—"))
+            )
+            st.markdown(f'<div class="small">{html.escape(str(lang.get("summary", "")))}</div>')
+
+    next_steps = report.get("next_steps") or []
+    if next_steps:
+        st.markdown('<div class="section-title">下一步行动</div>', unsafe_allow_html=True)
+        st.markdown('<div class="report-sec">' + _ul(next_steps) + "</div>", unsafe_allow_html=True)
+
+    model_answers = report.get("model_answers") or []
+    if model_answers:
+        st.markdown('<div class="section-title">改进版参考答案（挑最弱题）</div>', unsafe_allow_html=True)
+        for ma in model_answers[:3]:
+            with st.expander(ma.get("question", "")[:40]):
+                st.markdown(f'<div class="panel" style="font-size:13.5px;line-height:1.8">{html.escape(str(ma.get("answer", "")))}</div>', unsafe_allow_html=True)
+
+    coach = report.get("coach_plan") or {}
+    modules = coach.get("modules") or []
+    if modules:
+        st.markdown(f'<div class="section-title">学习教练 · 本周计划（约 {coach.get("total_min", 0)} 分钟）</div>', unsafe_allow_html=True)
+        for m in modules:
+            with st.expander(f"📚 {m.get('title', '')}（{m.get('est_min', '?')} 分钟 · {html.escape(str(m.get('competency', '')))}）", expanded=False):
+                st.markdown(f"**为什么补：** {html.escape(str(m.get('rationale', '')))}")
+                st.markdown('<div class="report-sec"><div class="title">学习要点</div>' + _ul(m.get("focus_points", [])) + "</div>")
+                if m.get("sources"):
+                    st.markdown('<div class="report-sec"><div class="title">知识库材料</div>' + _ul(m.get("sources", [])) + "</div>")
 
     if comparison and comparison.get("history_count", 0) > 0:
         st.markdown(f'<div class="section-title">成长对比（历史 {comparison.get("history_count")} 场）</div>', unsafe_allow_html=True)
@@ -330,19 +385,39 @@ def render_report(report: dict, comparison: dict | None = None) -> None:
 
 def render_question_card(q: dict, index: int, total: int) -> None:
     topic = "项目深挖" if q.get("topic") == "project" else q.get("topic", "")
+    if topic == "behavior":
+        topic = "行为面"
+    difficulty = int(q.get("difficulty") or 0)
+    stars = "★" * difficulty + "☆" * max(0, 5 - difficulty)
+    competency = html.escape(q.get("competency") or "")
+    rubric_html = ""
+    rubric = q.get("rubric") or []
+    if rubric:
+        lines = "".join(
+            f'<div style="margin:2px 0">{html.escape(r.get("criterion", ""))}（权重 {float(r.get("weight", 0.3)):.1f}）：{html.escape(r.get("description", ""))}</div>'
+            for r in rubric
+        )
+        rubric_html = f'<details style="margin-top:8px;font-size:12px;color:var(--muted)"><summary>评分标准</summary><div style="margin-top:4px">{lines}</div></details>'
+    followups = q.get("followups") or []
+    followup_html = ""
+    if followups:
+        items = "".join(f"<li>{html.escape(str(f))}</li>" for f in followups[:3])
+        followup_html = f'<details style="margin-top:6px;font-size:12px;color:var(--muted)"><summary>可能追问方向</summary><ul style="margin:4px 0;padding-left:18px">{items}</ul></details>'
     st.markdown(
         f"""
         <div class="panel q-panel">
-            <div class="q-meta">第 {index} / {total} 题 · {html.escape(topic)} · {html.escape(q.get('level', ''))}</div>
+            <div class="q-meta">第 {index} / {total} 题 · {html.escape(topic)} · {html.escape(q.get('level', ''))} · 难度 {stars}{f" · 考察：{competency}" if competency else ""}</div>
             <div class="q-text">{html.escape(q.get('question', ''))}</div>
             <div class="q-hint">提示：{html.escape(q.get('hint', ''))}</div>
+            {rubric_html}
+            {followup_html}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_feedback(feedback: str, followup: str, score_hint: str = "") -> None:
+def render_feedback(feedback: str, followup: str, score_hint: str = "", score: int | None = None) -> None:
     st.markdown(
         f"""
         <div class="feedback">
@@ -352,8 +427,9 @@ def render_feedback(feedback: str, followup: str, score_hint: str = "") -> None:
         """,
         unsafe_allow_html=True,
     )
-    if score_hint:
-        st.caption(f"预判得分：{score_hint}")
+    if score is not None or score_hint:
+        score_txt = f"本题得分：{score}/5" if score is not None else ""
+        st.caption(f"{score_txt}{(' · ' if score_txt and score_hint else '')}{score_hint}")
     st.markdown(
         f"""
         <div class="panel" style="border-top:3px solid #d4d4d8">
@@ -452,11 +528,25 @@ def _start_interview() -> None:
     direction = st.session_state["iv_direction"]
     count = int(st.session_state["iv_count"])
     profile = ProfileStore(PROFILE_KEY).load()
+    jd_analysis = profile.get("jd_analysis") or {}
+    job_spec = {k: v for k, v in jd_analysis.items() if k != "gap"}
+    gap = jd_analysis.get("gap") or None
     with st.spinner(f"正在为「{direction}」方向出题…"):
-        questions = manager.generate_question_list(direction, count, profile=profile)
+        questions = manager.generate_question_list(
+            direction,
+            count,
+            profile=profile,
+            jd_analysis=job_spec or None,
+            gap=gap,
+        )
         project_count = sum(1 for q in questions if q.get("topic") == "project")
         iid = f"iv-{uuid.uuid4().hex[:8]}"
-        create_interview(iid, direction)
+        create_interview(
+            iid,
+            direction,
+            plan=json.dumps(questions, ensure_ascii=False),
+            prep=json.dumps({"jd_analysis": job_spec, "gap": gap}, ensure_ascii=False),
+        )
         first = questions[0]
         qa_id = save_qa(
             iid,
@@ -464,6 +554,10 @@ def _start_interview() -> None:
             topic=first.get("topic", ""),
             level=first.get("level", ""),
             hint=first.get("hint", ""),
+            difficulty=int(first.get("difficulty", 0) or 0),
+            competency=first.get("competency", ""),
+            rubric=json.dumps(first.get("rubric", []), ensure_ascii=False),
+            seed_followups=json.dumps(first.get("followups", []), ensure_ascii=False),
         )
         st.session_state["interview"] = {
             "id": iid,
@@ -475,6 +569,7 @@ def _start_interview() -> None:
             "pending_feedback": "",
             "pending_followup": "",
             "pending_score_hint": "",
+            "pending_score": None,
             "reference": "",
             "report": None,
             "comparison": None,
@@ -483,21 +578,93 @@ def _start_interview() -> None:
     st.rerun()
 
 
+def _start_design_interview(design: dict) -> None:
+    """按自定义面试设计（聆悟式）开始一场面试。"""
+    from backend.app.interview import _default_rubric
+
+    criteria = ((design.get("assessment_criteria") or [{}])[0]).get("name", "综合能力")
+    questions: list[dict] = []
+    topic_map = {"BEHAVIOR": "behavior", "CODING": "algorithm", "RESEARCH": "ai", "TECHNICAL": "ai"}
+    for i, dq in enumerate((design.get("questions") or [])[:10]):
+        qtype = (dq.get("type") or "").upper()
+        followups = dq.get("follow_up_prompts") or []
+        questions.append(
+            {
+                "id": f"dq{i}",
+                "question": dq.get("text", ""),
+                "topic": topic_map.get(qtype, "ai"),
+                "level": "场景",
+                "hint": "；".join(str(f) for f in followups[:2]) or "按 STAR / 结论先行组织回答",
+                "difficulty": 3,
+                "competency": criteria,
+                "rubric": _default_rubric({"topic": questions and questions[-1].get("topic", "") or "ai"}),
+                "followups": [str(f) for f in followups] or ["能展开讲讲关键细节吗？"],
+            }
+        )
+    if not questions:
+        st.error("面试设计里没有有效题目，请重新生成。")
+        return
+    title = f"自定义：{design.get('title', '面试')}"[:20]
+    iid = f"iv-{uuid.uuid4().hex[:8]}"
+    create_interview(
+        iid,
+        title,
+        plan=json.dumps(questions, ensure_ascii=False),
+        prep=json.dumps({"design": design}, ensure_ascii=False),
+    )
+    first = questions[0]
+    qa_id = save_qa(
+        iid,
+        question=first["question"],
+        topic=first.get("topic", ""),
+        level=first.get("level", ""),
+        hint=first.get("hint", ""),
+        difficulty=int(first.get("difficulty", 0) or 0),
+        competency=first.get("competency", ""),
+        rubric=json.dumps(first.get("rubric", []), ensure_ascii=False),
+        seed_followups=json.dumps(first.get("followups", []), ensure_ascii=False),
+    )
+    st.session_state["interview"] = {
+        "id": iid,
+        "direction": title,
+        "questions": questions,
+        "index": 0,
+        "qa_id": qa_id,
+        "stage": "question",
+        "pending_feedback": "",
+        "pending_followup": "",
+        "pending_score_hint": "",
+        "pending_score": None,
+        "reference": "",
+        "report": None,
+        "comparison": None,
+        "project_count": 0,
+    }
+    st.rerun()
+
+
 def _submit_answer(answer: str) -> None:
     iv = st.session_state["interview"]
     manager = InterviewManager()
     current = iv["questions"][iv["index"]]
     with st.spinner("面试官正在点评…"):
-        result = manager.feedback_and_followup(current["question"], answer)
+        result = manager.feedback_and_followup(
+            current["question"],
+            answer,
+            rubric=current.get("rubric"),
+            competency=current.get("competency", ""),
+        )
     update_qa(
         iv["qa_id"],
         answer=answer,
+        answer_score=int(result.get("score", 0) or 0),
         feedback=result.get("feedback", ""),
         followup=result.get("followup", ""),
     )
     iv["pending_feedback"] = result.get("feedback", "")
     iv["pending_followup"] = result.get("followup", "")
     iv["pending_score_hint"] = result.get("score_hint", "")
+    iv["pending_score"] = int(result.get("score", 0) or 0)
     iv["stage"] = "followup"
 
 
@@ -520,11 +687,16 @@ def _open_next_question() -> None:
         topic=q.get("topic", ""),
         level=q.get("level", ""),
         hint=q.get("hint", ""),
+        difficulty=int(q.get("difficulty", 0) or 0),
+        competency=q.get("competency", ""),
+        rubric=json.dumps(q.get("rubric", []), ensure_ascii=False),
+        seed_followups=json.dumps(q.get("followups", []), ensure_ascii=False),
     )
     iv["qa_id"] = qa_id
     iv["pending_feedback"] = ""
     iv["pending_followup"] = ""
     iv["pending_score_hint"] = ""
+    iv["pending_score"] = None
     iv["reference"] = ""
     iv["stage"] = "question"
 
@@ -559,6 +731,10 @@ def _finish_interview() -> None:
         return
     with st.spinner("正在生成本场评分报告…"):
         report = manager.evaluate_interview(qa_list)
+        try:
+            report["coach_plan"] = manager.coach_plan(report)
+        except Exception:
+            report["coach_plan"] = {"summary": "暂未生成学习计划", "modules": [], "total_min": 0}
         history = [
             json.loads(r["report"])
             for r in list_interviews(PROFILE_KEY)
@@ -592,6 +768,46 @@ def render_interview_tab() -> None:
             st.markdown("<div style='height:26px'></div>", unsafe_allow_html=True)
             if st.button("开始模拟面试", type="primary", use_container_width=True):
                 _start_interview()
+
+        profile = ProfileStore(PROFILE_KEY).load()
+        jd_analysis = profile.get("jd_analysis") or {}
+        if jd_analysis.get("title"):
+            job_display = f"{jd_analysis.get('title')}（必须项：{'、'.join((jd_analysis.get('must_have') or [])[:4]) or '未解析'}）"
+            st.caption(f"已绑定目标 JD：{job_display}")
+            gap = jd_analysis.get("gap") or {}
+            if gap.get("summary"):
+                st.caption(f"差距分析：{gap.get('summary')}｜应深挖：{'、'.join((gap.get('probe_targets') or [])[:3])}")
+        else:
+            st.caption("尚未分析目标 JD：去「我的档案」粘贴岗位描述，面试题会更贴合岗位要求。")
+
+        with st.expander("自定义面试设计：一句话描述考察目标 → 自动生成完整面试"):
+            goal = st.text_input(
+                "考察目标",
+                key="iv_design_goal",
+                placeholder="例如：考察大模型实习生的 RAG 落地能力与项目深挖，含行为面",
+            )
+            d1, d2 = st.columns([2, 1])
+            with d1:
+                st.caption("可复用「我的档案」里的目标 JD 与简历文本作为设计上下文。")
+            with d2:
+                dur = st.selectbox("目标时长（分钟）", [10, 15, 20, 30], key="iv_design_dur", index=1)
+            if st.button("生成面试设计并开始", key="btn_design", type="primary"):
+                if not goal.strip():
+                    st.warning("先描述考察目标再生成。")
+                else:
+                    try:
+                        with st.spinner("正在设计面试方案…"):
+                            design = InterviewManager().design_interview(
+                                goal.strip(),
+                                jd_text=profile.get("jd_text", ""),
+                                resume_text=profile.get("resume_text", ""),
+                                duration=int(dur),
+                            )
+                    except InterviewError as exc:
+                        st.error(f"生成失败：{exc}")
+                    else:
+                        st.session_state["design_preview"] = design
+                        _start_design_interview(design)
         if iv is not None and iv.get("stage") == "finished" and iv.get("report"):
             st.markdown('<div class="section-title">最近一次面试报告</div>', unsafe_allow_html=True)
             render_report(iv["report"], iv.get("comparison"))
@@ -637,7 +853,7 @@ def render_interview_tab() -> None:
                 _finish_interview()
                 st.rerun()
     elif iv["stage"] == "followup":
-        render_feedback(iv["pending_feedback"], iv["pending_followup"], iv["pending_score_hint"])
+        render_feedback(iv["pending_feedback"], iv["pending_followup"], iv["pending_score_hint"], iv.get("pending_score"))
         followup_answer = st.text_area(
             "追问回答",
             key=f"followup_{iv['qa_id']}",
@@ -766,6 +982,10 @@ def render_war_room_tab() -> None:
     suggestions: list[str] = []
     for r in reports[-3:]:
         suggestions.extend(str(s) for s in (r["report"].get("suggestions", []) or []))
+        suggestions.extend(str(s) for s in (r["report"].get("next_steps", []) or []))
+        coach = r["report"].get("coach_plan") or {}
+        for m in coach.get("modules", []) or []:
+            suggestions.append(f"学习模块：{m.get('title', '')}（{m.get('est_min', '?')} 分钟）")
     for rv in list_reviews(PROFILE_KEY, limit=5):
         suggestions.extend(str(s) for s in (rv.get("action_plan", []) or []))
     seen: set[str] = set()
@@ -841,6 +1061,21 @@ def render_profile_tab() -> None:
             target_direction = st.text_input("目标方向", value=form.get("target_direction", ""), key=f"pf_dir_{version}")
         skills = st.text_input("技能栈（逗号分隔）", value=", ".join(form.get("skills") or []), key=f"pf_skills_{version}")
         weak = st.text_input("薄弱点（逗号分隔）", value=", ".join(form.get("weak_areas") or []), key=f"pf_weak_{version}")
+        st.markdown('<div class="section-title" style="margin-top:8px">目标 JD 与简历（驱动个性化出题）</div>', unsafe_allow_html=True)
+        jd_text = st.text_area(
+            "目标岗位描述（JD）",
+            value=form.get("jd_text", ""),
+            key=f"pf_jd_{version}",
+            height=110,
+            placeholder="粘贴你想投的岗位 JD，保存后自动解析岗位画像与差距分析，模拟面试会按 JD 考察点出题",
+        )
+        resume_text = st.text_area(
+            "简历文本（可选）",
+            value=form.get("resume_text", ""),
+            key=f"pf_resume_{version}",
+            height=90,
+            placeholder="粘贴简历正文，供面试设计参考",
+        )
         st.markdown('<div class="section-title" style="margin-top:8px">项目经历（最多 3 个）</div>', unsafe_allow_html=True)
 
         filled: list[dict] = []
@@ -871,17 +1106,49 @@ def render_profile_tab() -> None:
         submitted = st.form_submit_button("保存档案", type="primary")
 
     if submitted:
-        saved = store.save(
-            {
-                "target_role": target_role.strip(),
-                "target_direction": target_direction.strip(),
-                "skills": [s.strip() for s in skills.split(",") if s.strip()],
-                "weak_areas": [s.strip() for s in weak.split(",") if s.strip()],
-                "projects": filled,
-            }
-        )
+        data = {
+            "target_role": target_role.strip(),
+            "target_direction": target_direction.strip(),
+            "skills": [s.strip() for s in skills.split(",") if s.strip()],
+            "weak_areas": [s.strip() for s in weak.split(",") if s.strip()],
+            "projects": filled,
+            "jd_text": jd_text.strip(),
+            "resume_text": resume_text.strip(),
+        }
+        if jd_text.strip():
+            try:
+                with st.spinner("正在解析 JD 并生成差距分析…"):
+                    manager = InterviewManager()
+                    job_spec = manager.analyze_jd(jd_text.strip())
+                    gap = manager.gap_analysis(data, job_spec)
+                data["jd_analysis"] = {**job_spec, "gap": gap}
+            except InterviewError as exc:
+                st.error(f"JD 解析失败：{exc}（档案其他字段仍会保存）")
+                data["jd_analysis"] = form.get("jd_analysis", {})
+        saved = store.save(data)
         st.session_state[f"profile_form_{version}"] = saved
-        st.success("档案已保存：模拟面试将按你的目标岗位与项目经历个性化出题。")
+        st.success("档案已保存：模拟面试将按你的目标岗位、JD 考察点与项目经历个性化出题。")
+
+    jd_analysis = form.get("jd_analysis") or {}
+    if jd_analysis.get("title"):
+        st.markdown('<div class="section-title">目标 JD 画像</div>', unsafe_allow_html=True)
+        gap = jd_analysis.get("gap") or {}
+        must_have = "、".join((jd_analysis.get("must_have") or [])[:6]) or "未解析"
+        nice_have = "、".join((jd_analysis.get("nice_to_have") or [])[:4]) or "—"
+        stack = "、".join((jd_analysis.get("tech_stack") or [])[:6]) or "—"
+        st.markdown(
+            f"""
+            <div class="panel">
+                <div style="font-size:14px;font-weight:600">{html.escape(str(jd_analysis.get('title', '')))} <span class="small">· {html.escape(str(jd_analysis.get('company_name', '') or ''))} · {html.escape(str(jd_analysis.get('seniority', '') or ''))}</span></div>
+                <div class="small" style="margin-top:6px">必须项：{html.escape(must_have)}</div>
+                <div class="small">加分项：{html.escape(nice_have)}</div>
+                <div class="small">技术栈：{html.escape(stack)}</div>
+                {f'<div class="small" style="margin-top:6px;color:var(--ink-2)">差距分析：{html.escape(str(gap.get("summary", "")))}</div>' if gap.get("summary") else ""}
+                {f'<div class="small">应深挖验证：{html.escape("、".join((gap.get("probe_targets") or [])[:4]))}</div>' if gap.get("probe_targets") else ""}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown('<div class="section-title">档案预览（将注入面试官 / 求职顾问）</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="panel" style="white-space:pre-wrap;font-size:13px;line-height:1.8">{html.escape(profile_context_text(form))}</div>', unsafe_allow_html=True)

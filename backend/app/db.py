@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, String, Text
+from sqlalchemy import String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from .config import DB_PATH, ensure_dirs
@@ -42,6 +42,8 @@ class Interview(Base):
     status: Mapped[str] = mapped_column(String(16), default="ongoing")
     score: Mapped[int] = mapped_column(default=0)
     report: Mapped[str] = mapped_column(Text, default="")
+    plan: Mapped[str] = mapped_column(Text, default="")
+    prep: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
@@ -57,7 +59,12 @@ class InterviewQA(Base):
     topic: Mapped[str] = mapped_column(String(32), default="")
     level: Mapped[str] = mapped_column(String(16), default="")
     hint: Mapped[str] = mapped_column(Text, default="")
+    difficulty: Mapped[int] = mapped_column(default=0)
+    competency: Mapped[str] = mapped_column(String(64), default="")
+    rubric: Mapped[str] = mapped_column(Text, default="[]")
+    seed_followups: Mapped[str] = mapped_column(Text, default="[]")
     answer: Mapped[str] = mapped_column(Text, default="")
+    answer_score: Mapped[int] = mapped_column(default=0)
     feedback: Mapped[str] = mapped_column(Text, default="")
     followup: Mapped[str] = mapped_column(Text, default="")
     followup_answer: Mapped[str] = mapped_column(Text, default="")
@@ -76,6 +83,9 @@ class UserProfile(Base):
     skills: Mapped[str] = mapped_column(Text, default="[]")
     weak_areas: Mapped[str] = mapped_column(Text, default="[]")
     projects: Mapped[str] = mapped_column(Text, default="[]")
+    jd_text: Mapped[str] = mapped_column(Text, default="")
+    jd_analysis: Mapped[str] = mapped_column(Text, default="{}")
+    resume_text: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
 
@@ -97,6 +107,38 @@ class InterviewReview(Base):
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _migrate_columns()
+
+
+_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
+    "interview_qa": [
+        ("difficulty", "INTEGER DEFAULT 0"),
+        ("competency", "VARCHAR(64) DEFAULT ''"),
+        ("rubric", "TEXT DEFAULT '[]'"),
+        ("seed_followups", "TEXT DEFAULT '[]'"),
+        ("answer_score", "INTEGER DEFAULT 0"),
+    ],
+    "interviews": [
+        ("plan", "TEXT DEFAULT ''"),
+        ("prep", "TEXT DEFAULT ''"),
+    ],
+    "user_profiles": [
+        ("jd_text", "TEXT DEFAULT ''"),
+        ("jd_analysis", "TEXT DEFAULT '{}'"),
+        ("resume_text", "TEXT DEFAULT ''"),
+    ],
+}
+
+
+def _migrate_columns() -> None:
+    """轻量迁移：为新表补充新列（幂等，重复调用安全）。"""
+    with engine.connect() as conn:
+        for table, columns in _MIGRATIONS.items():
+            existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+            for name, ddl in columns:
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+        conn.commit()
 
 
 @contextmanager

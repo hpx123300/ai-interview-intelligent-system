@@ -16,6 +16,9 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "target_direction": "大模型 / AI 应用开发",
     "skills": ["Python", "RAG", "Agent", "Function Calling", "SQLite", "Streamlit"],
     "weak_areas": ["算法题", "计算机网络"],
+    "jd_text": "",
+    "jd_analysis": {},
+    "resume_text": "",
     "projects": [
         {
             "name": "投满分：BERT 文本分类与模型优化",
@@ -72,6 +75,9 @@ class ProfileStore:
             "skills": json.loads(row.skills or "[]"),
             "weak_areas": json.loads(row.weak_areas or "[]"),
             "projects": json.loads(row.projects or "[]"),
+            "jd_text": row.jd_text,
+            "jd_analysis": json.loads(row.jd_analysis or "{}"),
+            "resume_text": row.resume_text,
             "updated_at": row.updated_at.isoformat(),
         }
 
@@ -83,6 +89,9 @@ class ProfileStore:
             "skills": json.dumps(data.get("skills", []) or [], ensure_ascii=False),
             "weak_areas": json.dumps(data.get("weak_areas", []) or [], ensure_ascii=False),
             "projects": json.dumps(data.get("projects", []) or [], ensure_ascii=False),
+            "jd_text": str(data.get("jd_text", "")),
+            "jd_analysis": json.dumps(data.get("jd_analysis", {}) or {}, ensure_ascii=False),
+            "resume_text": str(data.get("resume_text", "")),
         }
         with get_session() as session:
             row = session.get(UserProfile, self.profile_key)
@@ -94,6 +103,9 @@ class ProfileStore:
             row.skills = clean["skills"]
             row.weak_areas = clean["weak_areas"]
             row.projects = clean["projects"]
+            row.jd_text = clean["jd_text"]
+            row.jd_analysis = clean["jd_analysis"]
+            row.resume_text = clean["resume_text"]
             row.updated_at = _now()
             session.commit()
         return self.load()
@@ -111,6 +123,10 @@ def profile_context_text(profile: dict[str, Any]) -> str:
     weak = profile.get("weak_areas") or []
     if weak:
         parts.append("薄弱点：" + "、".join(weak))
+    jd_analysis = profile.get("jd_analysis") or {}
+    if jd_analysis:
+        jd = jd_analysis.get("title") or "目标岗位 JD"
+        parts.append(f"目标 JD 画像：{jd}（必须项：{'、'.join(jd_analysis.get('must_have', [])[:5]) or '未解析'}）")
     projects = profile.get("projects") or []
     if projects:
         parts.append("项目经历：")
