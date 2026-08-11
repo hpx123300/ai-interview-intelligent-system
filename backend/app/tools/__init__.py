@@ -51,11 +51,11 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "query_question",
-            "description": "从面试题库按主题/难度抽取面试题。主题可选：python/database/network/os/ai/algorithm。当用户要求出题、模拟面试、刷题时调用。",
+            "description": "从面试题库按主题/难度抽取面试题。主题可选：python/database/network/os/ai/algorithm/project。当用户要求出题、模拟面试、刷题时调用。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "topic": {"type": "string", "description": "主题，如 python / database / network / os / ai"},
+                    "topic": {"type": "string", "description": "主题，如 python / database / network / os / ai / algorithm / project"},
                     "level": {"type": "string", "description": "难度，如 基础 / 进阶"},
                 },
                 "required": [],

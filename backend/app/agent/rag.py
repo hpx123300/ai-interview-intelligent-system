@@ -1,7 +1,7 @@
 """RAG 检索：Markdown 标题感知分块 + 检索。
 
 检索策略（自动降级）：
-1. 已安装 sentence-transformers + faiss -> 向量检索（m3e-base，索引持久化）
+1. 已安装 sentence-transformers + faiss -> 向量 + 关键词 RRF 混合检索（m3e-base，索引持久化）
 2. 否则 -> jieba 关键词加权评分（纯 Python，零额外依赖）
 文档指纹检测：知识库变更后自动重建索引。
 """
@@ -122,16 +122,38 @@ class KnowledgeBase:
         scored.sort(key=lambda x: -x[0])
         return [dict(c, score=float(s)) for s, c in scored[:k]]
 
+    @staticmethod
+    def _rrf_merge(ranked_lists: list[list[dict]], k: int = 60) -> list[dict]:
+        """Reciprocal Rank Fusion：融合多路召回结果，保留来源与融合得分。"""
+        fused: dict[str, dict] = {}
+        for results in ranked_lists:
+            for rank, item in enumerate(results):
+                key = f"{item.get('source')}::{item.get('title')}"
+                if key not in fused:
+                    fused[key] = dict(item)
+                    fused[key]["rrf_score"] = 0.0
+                    fused[key]["ranks"] = []
+                fused[key]["rrf_score"] += 1.0 / (k + rank + 1)
+                fused[key]["ranks"].append(rank + 1)
+        merged = sorted(fused.values(), key=lambda x: -x["rrf_score"])
+        for item in merged:
+            item["score"] = round(item["rrf_score"], 4)
+            item.pop("ranks", None)
+        return merged
+
     def search(self, query: str, k: int = 3) -> list[dict]:
         self.load()
         if not self.chunks:
             return []
+        keyword = self._keyword_search(query, k=max(k, 5))
+        if not self._vector_enabled:
+            return keyword[:k]
         try:
-            if self._vector_enabled:
-                return self._vector_search(query, k)
+            vector = self._vector_search(query, k=max(k, 5))
+            merged = self._rrf_merge([keyword, vector], k=60)
+            return merged[:k]
         except Exception:
-            pass
-        return self._keyword_search(query, k)
+            return keyword[:k]
 
 
 knowledge_base = KnowledgeBase()
