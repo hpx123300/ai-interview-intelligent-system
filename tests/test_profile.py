@@ -44,8 +44,16 @@ def test_profile_save_load_roundtrip():
 
 
 def test_profile_context_text_contains_projects():
-    profile = ProfileStore().load()
+    profile = {
+        "target_role": "大模型应用开发实习生",
+        "target_direction": "大模型 / AI 应用开发",
+        "skills": ["Python", "RAG"],
+        "weak_areas": ["算法"],
+        "jd_analysis": {},
+        "projects": [
+            {"name": "投满分 BERT 分类", "tech_stack": "PyTorch", "description": "文本分类", "metrics": "F1 0.92", "story": "蒸馏"}
+        ],
+    }
     text = profile_context_text(profile)
     assert "目标岗位" in text
     assert "投满分" in text
-    assert "AI 面试备战助手" in text

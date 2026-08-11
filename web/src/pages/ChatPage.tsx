@@ -94,7 +94,7 @@ export default function ChatPage() {
             <div className="mx-auto h-12 w-12 rounded-2xl bg-accent-soft grid place-items-center">
               <Sparkles size={20} className="text-accent" />
             </div>
-            <div className="display text-[19px] mt-4">你好，我是面试备战助手</div>
+            <div className="display text-[19px] mt-4">你好，我是 AI 面试备战助手</div>
             <p className="text-[13px] text-muted mt-2 max-w-sm mx-auto">
               可以模拟面试、讲解八股、查实习岗位。主管 Agent 会判断意图并分派给
               模拟面试官 / 八股讲师 / 求职顾问。
@@ -184,7 +184,7 @@ function MessageBubble({ message }: { message: UiMessage }) {
             <div className="h-6 w-6 rounded-lg bg-accent text-white grid place-items-center text-[11px] font-bold">
               面
             </div>
-            <span className="text-[11.5px] text-faint">面试备战助手</span>
+            <span className="text-[11.5px] text-faint">AI 面试备战助手</span>
           </div>
         )}
         <div

@@ -47,7 +47,7 @@ export default function AppShell({
             面
           </div>
           <div className="leading-tight">
-            <div className="text-[13.5px] font-bold text-ink">面试备战助手</div>
+            <div className="text-[13.5px] font-bold text-ink">AI 面试备战助手</div>
             <div className="text-[10.5px] text-faint">AI Interview Coach</div>
           </div>
         </div>
