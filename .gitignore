@@ -6,3 +6,4 @@ data/interview.db
 data/rag_index/
 .DS_Store
 .pytest_cache/
+web/node_modules/

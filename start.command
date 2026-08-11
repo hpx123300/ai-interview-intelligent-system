@@ -1,12 +1,12 @@
 #!/bin/bash
-# AI 面试备战助手 一键启动
-# 双击本文件：自动创建虚拟环境 → 启动服务 → 等服务就绪后自动打开浏览器
+# AI 面试备战助手 一键启动（新版 Web 前端）
+# 双击本文件：自动安装后端依赖 → 构建前端 → 启动服务 → 等服务就绪后自动打开浏览器
 
 cd "$(dirname "$0")" || exit 1
 
-# 1. 首次运行：创建虚拟环境并安装依赖
+# 1. 后端虚拟环境与依赖
 if [ ! -d ".venv" ]; then
-  echo "首次运行：创建虚拟环境并安装依赖（可能需要 1-2 分钟）..."
+  echo "首次运行：创建虚拟环境并安装后端依赖（可能需要 1-2 分钟）..."
   python3 -m venv .venv || exit 1
   .venv/bin/pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple \
     || .venv/bin/pip install -r requirements.txt \
@@ -23,25 +23,38 @@ if ! grep -q "^DEEPSEEK_API_KEY=.\+" .env 2>/dev/null; then
   echo "但 AI 功能需要填写 Key 后重新运行本文件才能使用。"
 fi
 
-# 3. 端口占用检查：如果已经在运行，直接打开浏览器
-if lsof -nP -iTCP:8501 -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "服务已在运行，正在打开浏览器：http://localhost:8501"
-  open http://localhost:8501
+# 3. 构建前端（首次或 dist 缺失时）
+if [ ! -f "web/dist/index.html" ]; then
+  echo "首次运行：安装前端依赖并构建（需要 Node.js，约 1-2 分钟）..."
+  cd web || exit 1
+  if command -v npm >/dev/null 2>&1; then
+    npm install && npm run build || exit 1
+  elif command -v pnpm >/dev/null 2>&1; then
+    pnpm install && pnpm build || exit 1
+  else
+    echo "未找到 npm/pnpm，请先安装 Node.js 后重试，或使用旧的 Streamlit 界面："
+    echo "  .venv/bin/streamlit run ui/app.py"
+    exit 1
+  fi
+  cd ..
+fi
+
+# 4. 端口占用检查：如果已经在运行，直接打开浏览器
+if lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "服务已在运行，正在打开浏览器：http://localhost:8000"
+  open http://localhost:8000
   exit 0
 fi
 
-# 4. 后台启动服务
-echo "正在启动 AI 面试备战助手，请稍候…"
-.venv/bin/streamlit run ui/app.py \
-  --server.port 8501 \
-  --server.headless true \
-  --server.fileWatcherType none &
+# 5. 后台启动 FastAPI 服务
+echo "正在启动 AI 面试备战助手（新版界面），请稍候…"
+.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000 &
 SERVER_PID=$!
 
-# 5. 等服务就绪后再打开浏览器（最多 60 秒）
+# 6. 等服务就绪后再打开浏览器（最多 60 秒）
 READY=0
 for _ in $(seq 1 60); do
-  if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
     READY=1
     break
   fi
@@ -49,11 +62,11 @@ for _ in $(seq 1 60); do
 done
 
 if [ "$READY" = "1" ]; then
-  echo "启动完成，正在打开浏览器：http://localhost:8501"
-  open http://localhost:8501
+  echo "启动完成，正在打开浏览器：http://localhost:8000"
+  open http://localhost:8000
 else
-  echo "服务启动超时，请看上方错误信息；也可手动打开 http://localhost:8501"
+  echo "服务启动超时，请看上方错误信息；也可手动打开 http://localhost:8000"
 fi
 
-# 6. 保持前台运行，关闭本窗口即停止服务
+# 7. 保持前台运行，关闭本窗口即停止服务
 wait $SERVER_PID

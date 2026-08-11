@@ -33,23 +33,28 @@
 
 ## 快速开始
 
+新版为 **React + Vite + Tailwind** 前端 + **FastAPI** 后端（沿用全部 Python 业务逻辑）：
+
 ```bash
 # 1. 配置 API Key
 cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 
-# 2. 双击 start.command（自动建虚拟环境 + 安装依赖 + 打开网页）
+# 2. 双击 start.command（自动建虚拟环境 + 构建前端 + 启动服务 + 打开网页）
 # 或手动：
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/streamlit run ui/app.py
+cd web && npm install && npm run build && cd ..
+.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000
 ```
 
-打开 http://localhost:8501，建议使用顺序：
+打开 http://localhost:8000，建议使用顺序：
 1. **我的档案**：填目标岗位 + 技能栈 + 三个真实项目（投满分 BERT / 本地知识库问答 / 本 Agent）
 2. **我的档案**：粘贴目标 JD → 保存后自动解析岗位画像与差距分析
 3. **模拟面试**：选方向开始（或「自定义面试设计」一句话生成），会看到「含 N 道项目深挖题」+ 每题的评分标准与追问方向
 4. **自由对话**：试试「讲讲 RAG 的原理」「广州有哪些大模型实习」
 5. **求职作战室**：几场之后看趋势、薄弱维度与学习教练待办
+
+> 旧版 Streamlit 界面保留在 `ui/app.py`，可用 `.venv/bin/streamlit run ui/app.py` 启动（端口 8501）。
 
 可选开启向量检索 RAG（首次运行会下载 m3e-base，需要网络）：
 ```bash
@@ -74,6 +79,8 @@ backend/app/
 ├── tools/               # 工具注册中心（题库/岗位库/知识库检索）
 └── db.py                # SQLite 表结构（会话/面试/档案/复盘）
 ui/app.py                # Streamlit：自由对话/模拟面试/面经复盘/求职作战室/历史报告/我的档案
+web/                     # 新版前端：React + Vite + Tailwind（对话/模拟面试/复盘/作战室/历史/档案）
+server/main.py           # FastAPI：聊天 SSE + 面试闭环 + 档案 + 复盘 + 静态托管前端
 data/knowledge/          # 8 份面试知识库（约 340 行）
 data/packs/              # 岗位问题包（大模型应用开发实习 / Python 后端实习）
 data/questions.json      # 98 道题库（python/database/network/os/ai/algorithm/project/behavior）
