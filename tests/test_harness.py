@@ -76,7 +76,7 @@ def test_router_direct_reply_for_greeting():
     """寒暄不指派专员，主管直接回复。"""
 
     def fake_create(**kw):
-        return make_chat_response(make_message("你好，欢迎来到面试备战助手！", None))
+        return make_chat_response(make_message("你好，欢迎来到面试智能系统！", None))
 
     patchers = patch_all_clients(fake_create)
     try:

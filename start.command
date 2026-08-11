@@ -1,5 +1,5 @@
 #!/bin/bash
-# AI 面试备战助手 一键启动（新版 Web 前端）
+# AI 面试智能系统 一键启动（新版 Web 前端）
 # 双击本文件：自动安装后端依赖 → 构建前端 → 启动服务 → 等服务就绪后自动打开浏览器
 
 cd "$(dirname "$0")" || exit 1
@@ -46,7 +46,7 @@ if lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 # 5. 后台启动 FastAPI 服务
-echo "正在启动 AI 面试备战助手（新版界面），请稍候…"
+echo "正在启动 AI 面试智能系统（新版界面），请稍候…"
 .venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000 &
 SERVER_PID=$!
 

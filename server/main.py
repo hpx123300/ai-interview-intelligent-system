@@ -1,4 +1,4 @@
-"""AI 面试备战助手 · FastAPI 后端（复用 backend.app 逻辑，服务新前端）。
+"""AI 面试智能系统 · FastAPI 后端（复用 backend.app 逻辑，服务新前端）。
 
 聊天走 SSE 流式；面试闭环为无状态协议（客户端持有题单，服务端落库）；
 构建后的前端由本服务静态托管（单页回退到 index.html）。
@@ -44,7 +44,7 @@ from backend.app.review_store import create_review, delete_review, list_reviews 
 
 init_db()
 
-app = FastAPI(title="AI 面试备战助手 API", docs_url=None, redoc_url=None)
+app = FastAPI(title="AI 面试智能系统 API", docs_url=None, redoc_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],

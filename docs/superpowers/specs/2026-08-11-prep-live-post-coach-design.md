@@ -1,4 +1,4 @@
-# 面试备战助手 · Prep/Live/Post + 学习教练 改造设计
+# 面试智能系统 · Prep/Live/Post + 学习教练 改造设计
 
 日期：2026-08-11
 来源：借鉴 DeepInterview（Apache-2.0）与聆悟 ai-interview-platform（MIT）的架构与功能设计，

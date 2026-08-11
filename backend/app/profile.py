@@ -37,7 +37,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
             "story": "能讲 RAG 全流程、切块与检索的取舍，以及版本兼容等工程踩坑。",
         },
         {
-            "name": "AI 面试备战助手（本 Agent 项目）",
+            "name": "AI 面试智能系统（本 Agent 项目）",
             "tech_stack": "Python, DeepSeek, Function Calling, RAG, SQLite, Streamlit",
             "description": "多 Agent + RAG 的面试陪练应用：主管路由 + 三个专员，完整面试闭环与量化评估。",
             "highlights": "手写多 Agent Harness；关键词+向量 RRF 混合检索；面试闭环状态机；14+ 项自动化测试。",

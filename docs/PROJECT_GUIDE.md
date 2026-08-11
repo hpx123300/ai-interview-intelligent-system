@@ -1,4 +1,4 @@
-# 📚 AI 面试备战助手 · 项目全解 + 技术栈学习路线
+# 📚 AI 面试智能系统 · 项目全解 + 技术栈学习路线
 
 > 本文档一次性回答三个问题：
 > 1. 这个项目里**每个文件**是干什么的？
@@ -9,7 +9,7 @@
 
 ## 一、项目是什么（30 秒版）
 
-**AI 面试备战助手**是一个面向「大模型 / AI 应用开发」第一次实习的多 Agent + RAG 面试陪练应用：
+**AI 面试智能系统**是一个面向「大模型 / AI 应用开发」第一次实习的多 Agent + RAG 面试陪练应用：
 
 - 绑定你的**个人档案**（简历 PDF 自动解析）+ **目标 JD**（文本或截图 OCR 自动解析）
 - 面试官根据你的真实项目和岗位要求**深挖追问**，不是通用聊天
@@ -328,5 +328,5 @@ flowchart LR
 
 ## 六、一句话简历（背下来）
 
-> **AI 面试备战助手**：面向大模型应用实习岗的多 Agent + RAG 面试陪练应用。手写主管路由 + 三专员 Function Calling 引擎（不依赖 LangGraph），简历 PDF 与 JD 截图自动解析生成专属面试官；prep/live/post 面试闭环含 rubric 评分、ScoreCard 报告与学习教练；RAG 采用关键词 + 向量 RRF 混合检索，实测 Recall@3 = 0.929、MRR = 0.750，路由准确率 100%，23 项 pytest + GitHub Actions CI 全绿。
+> **AI 面试智能系统**：面向大模型应用实习岗的多 Agent + RAG 面试陪练应用。手写主管路由 + 三专员 Function Calling 引擎（不依赖 LangGraph），简历 PDF 与 JD 截图自动解析生成专属面试官；prep/live/post 面试闭环含 rubric 评分、ScoreCard 报告与学习教练；RAG 采用关键词 + 向量 RRF 混合检索，实测 Recall@3 = 0.929、MRR = 0.750，路由准确率 100%，23 项 pytest + GitHub Actions CI 全绿。
 

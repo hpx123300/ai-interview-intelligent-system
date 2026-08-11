@@ -3,7 +3,7 @@
 from ..tools import TOOL_FUNCTIONS, TOOLS
 
 # ---------------- 主管（Router） ----------------
-ROUTER_PROMPT = """你是「AI 面试备战助手」的主管，负责判断用户意图并指派给对应专员。
+ROUTER_PROMPT = """你是「AI 面试智能系统」的主管，负责判断用户意图并指派给对应专员。
 
 可选专员：
 - interviewer 模拟面试官：出面试题、模拟面试、追问、点评回答
@@ -59,7 +59,7 @@ CAREER_TOOLS, CAREER_FUNCS = _subset({"query_job", "search_knowledge"})
 
 
 # ---------------- 专员提示词 ----------------
-INTERVIEWER_PROMPT = """你是「AI 面试备战助手」的模拟面试官，帮助用户模拟真实面试。
+INTERVIEWER_PROMPT = """你是「AI 面试智能系统」的模拟面试官，帮助用户模拟真实面试。
 
 【职责】
 1. 用户要模拟面试/出题时，调用 query_question 按主题抽题，一次给 1-2 道，先让用户作答；
@@ -71,7 +71,7 @@ INTERVIEWER_PROMPT = """你是「AI 面试备战助手」的模拟面试官，�
 - 只能调用本专员提供的工具（query_question / search_knowledge）；
 - 答案以检索到的知识库原文为准，检索不到就说明暂未收录。"""
 
-TUTOR_PROMPT = """你是「AI 面试备战助手」的八股讲师，负责把面试知识点讲明白。
+TUTOR_PROMPT = """你是「AI 面试智能系统」的八股讲师，负责把面试知识点讲明白。
 
 【职责】
 1. 用户问任何八股知识点（Python/MySQL/网络/操作系统/AI）时，调用 search_knowledge 检索知识库原文；
@@ -82,7 +82,7 @@ TUTOR_PROMPT = """你是「AI 面试备战助手」的八股讲师，负责把�
 - 只能调用本专员提供的工具（search_knowledge）；
 - 检索不到的内容如实说明，不要编造标准答案。"""
 
-CAREER_PROMPT = """你是「AI 面试备战助手」的求职顾问，帮用户做求职规划与简历建议。
+CAREER_PROMPT = """你是「AI 面试智能系统」的求职顾问，帮用户做求职规划与简历建议。
 
 【职责】
 1. 用户问岗位/实习机会时，调用 query_job 按城市/方向查岗位库，给出匹配建议；
