@@ -22,7 +22,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.error || `请求失败（${res.status}）`);
+    const detail = Array.isArray(data?.detail)
+      ? data.detail.map((d: { msg?: string }) => d.msg || "").join("；")
+      : data?.detail;
+    throw new Error(data?.error || detail || `请求失败（${res.status}）`);
   }
   return data as T;
 }
@@ -44,7 +47,10 @@ export interface FinishResult {
 export const api = {
   getProfile: () => request<Profile>("/api/profile"),
   saveProfile: (p: Partial<Profile>) =>
-    request<Profile>("/api/profile", { method: "PUT", body: JSON.stringify(p) }),
+    request<Profile>("/api/profile", {
+      method: "PUT",
+      body: JSON.stringify({ profile: p }),
+    }),
   analyzeJd: (jdText: string, profile?: Partial<Profile>) =>
     request<JdAnalysis>("/api/profile/analyze-jd", {
       method: "POST",
