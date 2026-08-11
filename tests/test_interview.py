@@ -236,6 +236,31 @@ def test_design_interview_generates_plan():
     assert result["assessment_criteria"][0]["name"] == "检索设计"
 
 
+def test_score_answer_handles_db_rubric_string():
+    """DB 读回的 rubric 是 JSON 字符串，score_answer 不应崩溃（回归测试）。"""
+
+    def fake_create(**kw):
+        return make_chat_response(json.dumps({"score": 4, "evidence": "结论正确，例子具体"}))
+
+    patcher = patch_client(fake_create)
+    try:
+        result = InterviewManager().score_answer(
+            {
+                "question": "Q1",
+                "rubric": json.dumps(
+                    [{"criterion": "正确性", "weight": 0.4, "description": "结论正确"}],
+                    ensure_ascii=False,
+                ),
+            },
+            "回答",
+        )
+    finally:
+        patcher.stop()
+
+    assert result["score"] == 4
+    assert result["level"] == "strong"
+
+
 def test_compare_without_history():
     patcher = patch_client(lambda **kw: make_chat_response("{}"))
     try:

@@ -32,8 +32,7 @@ if [ ! -f "web/dist/index.html" ]; then
   elif command -v pnpm >/dev/null 2>&1; then
     pnpm install && pnpm build || exit 1
   else
-    echo "未找到 npm/pnpm，请先安装 Node.js 后重试，或使用旧的 Streamlit 界面："
-    echo "  .venv/bin/streamlit run ui/app.py"
+    echo "未找到 npm/pnpm，请先安装 Node.js 后重试。"
     exit 1
   fi
   cd ..

@@ -70,6 +70,21 @@ def _default_rubric(question: dict) -> list[dict]:
     ]
 
 
+def _as_rubric_list(rubric) -> list[dict]:
+    """兼容 rubric 的两种形态：list 或 JSON 字符串（DB 读回时为字符串）。"""
+    if isinstance(rubric, str):
+        try:
+            parsed = json.loads(rubric)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
+        return []
+    if isinstance(rubric, list):
+        return rubric
+    return []
+
+
 def _followups_from_hint(hint: str, topic: str) -> list[str]:
     if topic == "behavior":
         return ["能再给一个具体的例子吗？", "如果换一种情境，你会怎么做？"]
@@ -84,7 +99,7 @@ def _normalize_question(q: dict, idx: int = 0) -> dict:
     level = q.get("level") or "基础"
     hint = q.get("hint") or ""
     competency = q.get("target_competency") or q.get("competency") or (f"{topic}-{level}" if topic else "综合能力")
-    rubric = q.get("rubric") or _default_rubric(q)
+    rubric = _as_rubric_list(q.get("rubric")) or _default_rubric(q)
     difficulty = int(q.get("difficulty") or _LEVEL_DIFFICULTY.get(level, 3))
     followups = q.get("followups") or _followups_from_hint(hint, topic)
     return {
@@ -353,9 +368,10 @@ class InterviewManager:
         competency: str = "",
     ) -> dict:
         """针对当前回答给出点评、追问与 0-5 分评分（评分标准驱动）。"""
+        rubric_list = _as_rubric_list(rubric) or _default_rubric({"question": question})
         rubric_lines = "\n".join(
             f"- {r.get('criterion')}（权重 {float(r.get('weight', 0.3)):.1f}）：{r.get('description')}"
-            for r in (rubric or _default_rubric({"question": question}))
+            for r in rubric_list
         )
         system = """你是严格但友善的面试官。候选人刚回答了一道题。
 按评分标准打分（0=完全未答，3=合格，5=优秀），并给出得分证据。
@@ -375,7 +391,7 @@ class InterviewManager:
 
     def score_answer(self, question: dict, answer: str) -> dict:
         """post 阶段：按题目 rubric 对单题回答打分（competency 强制绑定题目，level 由分数推导）。"""
-        rubric = question.get("rubric") or _default_rubric(question)
+        rubric = _as_rubric_list(question.get("rubric")) or _default_rubric(question)
         competency = question.get("competency") or question.get("target_competency") or "综合能力"
         rubric_lines = "\n".join(
             f"- {r.get('criterion')}（权重 {float(r.get('weight', 0.3)):.1f}）：{r.get('description')}"
@@ -604,6 +620,3 @@ class InterviewManager:
   "action_plan": ["接下来 1-2 周可执行的学习/练习计划"]
 }"""
         return self._complete_json(system, f"面试经历原文：\n{text[:6000]}", temperature=0.3)
-
-
-interview_manager = InterviewManager()

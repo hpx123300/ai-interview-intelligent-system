@@ -6,9 +6,6 @@ python-dotenv>=1.0
 jieba>=0.42
 sqlalchemy>=2.0
 
-# 界面
-streamlit>=1.36
-
 # 新版 Web 前端后端
 fastapi>=0.115
 uvicorn>=0.32
