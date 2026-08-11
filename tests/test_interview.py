@@ -261,6 +261,25 @@ def test_score_answer_handles_db_rubric_string():
     assert result["level"] == "strong"
 
 
+def test_generate_interviewer_fallback():
+    """LLM 失败时面试官画像回退默认值，不抛异常。"""
+
+    def fake_create(**kw):
+        return make_chat_response("这不是 JSON")
+
+    patcher = patch_client(fake_create)
+    try:
+        interviewer = InterviewManager().generate_interviewer(
+            {"must_have": ["Python", "RAG"], "title": "大模型应用开发实习生"}
+        )
+    finally:
+        patcher.stop()
+
+    assert interviewer["name"]
+    assert interviewer["greeting"]
+    assert "Python" in interviewer["focus"]
+
+
 def test_compare_without_history():
     patcher = patch_client(lambda **kw: make_chat_response("{}"))
     try:

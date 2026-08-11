@@ -5,12 +5,16 @@
 """
 
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi import File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -55,10 +59,44 @@ def _err(exc: Exception, status: int = 500) -> JSONResponse:
     return JSONResponse({"error": str(exc)}, status_code=status)
 
 
+OCR_SWIFT = Path(__file__).resolve().parent / "ocr_vision.swift"
+
+
 # ---------------- 健康检查 ----------------
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+# ---------------- JD 图片 OCR ----------------
+@app.post("/api/jd/ocr")
+async def jd_ocr(file: UploadFile = File(...)):
+    content = await file.read()
+    if not content:
+        return JSONResponse({"error": "图片内容为空"}, status_code=400)
+    if not shutil.which("swift"):
+        return JSONResponse({"error": "本机未安装 Swift，无法识别图片；请直接在档案页粘贴 JD 文本"}, status_code=400)
+    suffix = Path(file.filename or "jd.png").suffix or ".png"
+    tmp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        proc = subprocess.run(
+            ["swift", str(OCR_SWIFT), tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "OCR 识别超时，请换一张更清晰的截图"}, status_code=400)
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+    if proc.returncode != 0 or not (proc.stdout or "").strip():
+        detail = (proc.stderr or "").strip()[:200]
+        return JSONResponse({"error": f"OCR 识别失败：{detail or '图片无法识别'}"}, status_code=400)
+    return {"text": proc.stdout.strip(), "ocr": "vision"}
 
 
 # ---------------- 对话（SSE） ----------------
@@ -207,6 +245,7 @@ def interview_start(req: InterviewStart):
             questions = _design_to_questions(req.design)
             direction = f"自定义：{req.design.get('title', '面试')}"[:20]
             prep = {"design": req.design}
+            interviewer_context = req.design
         else:
             jd_analysis = profile.get("jd_analysis") or {}
             job_spec = {k: v for k, v in jd_analysis.items() if k != "gap"}
@@ -220,6 +259,12 @@ def interview_start(req: InterviewStart):
             )
             direction = req.direction
             prep = {"jd_analysis": job_spec, "gap": gap}
+            interviewer_context = job_spec or gap
+        try:
+            interviewer = manager.generate_interviewer(interviewer_context or None)
+        except Exception:
+            interviewer = manager.generate_interviewer(None)
+        prep["interviewer"] = interviewer
         if not questions:
             raise InterviewError("没有生成有效题目")
         iid = f"iv-{uuid.uuid4().hex[:8]}"
@@ -248,6 +293,7 @@ def interview_start(req: InterviewStart):
             "project_count": project_count,
             "qa_id": qa_id,
             "direction": direction,
+            "interviewer": interviewer,
         }
     except (InterviewError, AgentError) as exc:
         return _err(exc, 400)

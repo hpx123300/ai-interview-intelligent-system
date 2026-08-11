@@ -227,6 +227,36 @@ class InterviewManager:
             pass
         raise InterviewError("面试设计生成失败，请换个描述试试")
 
+    def generate_interviewer(self, context: dict | None = None) -> dict:
+        """根据岗位画像 / 面试设计生成一位拟真面试官（LLM 失败回退默认画像）。"""
+        system = """你是面试筹备导演。根据提供的岗位画像，生成一位拟真面试官：
+- name：中文姓名（常见姓氏 + 名，2-3 字）
+- role_title：头衔，如"大模型应用开发团队 · 资深工程师"
+- focus：3-5 个考察重点（结合 must_have / 职责 / 评估维度，具体不要空话）
+- tone：一句话描述面试风格（如"节奏紧凑、爱追问细节、会打断验证深度"）
+- greeting：60 字内的开场白，自然口语化，含简短自我介绍与开场引导
+只输出 JSON：{"name": "...", "role_title": "...", "focus": ["..."], "tone": "...", "greeting": "..."}"""
+        try:
+            data = self._complete_json(
+                system,
+                f"岗位画像：\n{json.dumps(context or {}, ensure_ascii=False)[:3000]}",
+                temperature=0.4,
+            )
+            if data.get("name") and data.get("greeting"):
+                return data
+        except Exception:
+            pass
+        focus = []
+        if context:
+            focus = [str(x) for x in (context.get("must_have") or context.get("focus") or [])[:4]]
+        return {
+            "name": "陈老师",
+            "role_title": "资深面试官",
+            "focus": focus or ["综合能力", "项目深挖"],
+            "tone": "专业友好、注重追问细节",
+            "greeting": "你好，我是今天负责面试的面试官，我们直接开始吧——先做个简短的自我介绍？",
+        }
+
     # ---------------- 出题（问题计划） ----------------
     def generate_question_list(
         self,

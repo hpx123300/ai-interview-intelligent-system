@@ -2,6 +2,7 @@ import type {
   AnswerFeedback,
   ChatMessage,
   Dashboard,
+  Interviewer,
   InterviewDesign,
   InterviewDetail,
   InterviewSummary,
@@ -32,6 +33,7 @@ export interface StartResult {
   project_count: number;
   qa_id: number;
   direction: string;
+  interviewer?: Interviewer;
 }
 
 export interface FinishResult {
@@ -170,6 +172,16 @@ export const api = {
     request<{ ok: boolean }>(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`, {
       method: "DELETE",
     }),
+  ocrJdImage: async (file: File): Promise<{ text: string; ocr: string }> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/jd/ocr", { method: "POST", body: form });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(data?.error || `图片识别失败（${res.status}）`);
+    }
+    return data;
+  },
 };
 
 export function loadChatHistory(): ChatMessage[] {

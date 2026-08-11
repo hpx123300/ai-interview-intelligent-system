@@ -27,6 +27,7 @@
 - **RAG 混合检索**：Markdown 标题感知分块；关键词（jieba）+ 向量（FAISS + m3e）RRF 融合，索引持久化 + 文档指纹重建；embedding 模型单例缓存，无网自动降级关键词
 - **面试闭环状态机（prep/live/post）**：JD 画像与差距分析 → 评分标准驱动的问题计划 → 逐题评分 → ScoreCard 报告 → 学习教练，每环节结构化 JSON，落库可回看
 - **个性化档案 + 目标 JD**：SQLite 持久化，档案与 JD 画像注入面试官 / 求职顾问提示词，出题结合真实项目与岗位要求
+- **JD 图片直通面试官**：上传岗位 JD 截图，macOS Vision 本机 OCR（中文/英文）→ 自动解析岗位画像 → 生成专属面试官（姓名 / 头衔 / 考察重点 / 风格 / 开场白）→ 直接开面
 - **会话记忆**：自由对话按会话 ID 读写 SQLite，AI 跨轮记住上下文，刷新 / 重启不丢
 - **岗位问题包**：data/packs/ 下的岗位 playbook（round structure / question bank / signals / pitfalls）注入出题提示词
 - **工程健壮性**：LLM 调用指数退避重试、JSON 解析兜底、多级降级（题库兜底出题、关键词兜底向量检索）

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, ChevronDown, Play, Sparkles, Wand2 } from "lucide-react";
+import { ArrowRight, ChevronDown, ImageUp, Play, Sparkles, Wand2 } from "lucide-react";
 import { api, type StartResult } from "../lib/api";
 import type {
   AnswerFeedback,
   Comparison,
   InterviewDesign,
+  Interviewer,
   Profile,
   Question,
   Report,
@@ -26,6 +27,7 @@ export default function InterviewPage() {
   const [reference, setReference] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -34,6 +36,9 @@ export default function InterviewPage() {
   const [count, setCount] = useState(6);
   const [goal, setGoal] = useState("");
   const [duration, setDuration] = useState(15);
+  const [jdQuickFile, setJdQuickFile] = useState<File | null>(null);
+  const [jdQuickPreview, setJdQuickPreview] = useState<string | null>(null);
+  const [quickBusy, setQuickBusy] = useState(false);
 
   useEffect(() => {
     api.getProfile().then(setProfile).catch(() => undefined);
@@ -58,6 +63,7 @@ export default function InterviewPage() {
       setAnswerText("");
       setFollowupText("");
       setReport(null);
+      setInterviewer(result.interviewer || null);
       setPhase("live");
     } catch (e) {
       setError((e as Error).message);
@@ -82,6 +88,24 @@ export default function InterviewPage() {
       setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function quickStartFromJdImage() {
+    if (!jdQuickFile) return;
+    setQuickBusy(true);
+    setError("");
+    try {
+      const ocr = await api.ocrJdImage(jdQuickFile);
+      const current = await api.getProfile();
+      const analysis = await api.analyzeJd(ocr.text, current);
+      const saved = await api.saveProfile({ ...current, jd_text: ocr.text, jd_analysis: analysis });
+      setProfile(saved);
+      await start(direction, count);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setQuickBusy(false);
     }
   }
 
@@ -235,6 +259,46 @@ export default function InterviewPage() {
             </div>
           </div>
         </Card>
+
+        <Card>
+          <div className="flex items-center gap-2">
+            <ImageUp size={16} className="text-accent" />
+            <span className="text-[15px] font-bold">JD 图片直通面试官</span>
+          </div>
+          <p className="text-[12.5px] text-muted mt-1.5">
+            上传岗位 JD 截图，自动识别 → 解析岗位画像 → 生成专属面试官（姓名 / 头衔 / 考察重点 / 开场白）→ 直接开面。
+          </p>
+          <div className="flex items-center gap-3 flex-wrap mt-4">
+            <label className="btn btn-secondary cursor-pointer">
+              <ImageUp size={14} />
+              选择 JD 图片
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  setJdQuickFile(f);
+                  setJdQuickPreview(f ? URL.createObjectURL(f) : null);
+                }}
+              />
+            </label>
+            <Button variant="primary" onClick={quickStartFromJdImage} disabled={quickBusy || !jdQuickFile}>
+              <Sparkles size={14} />
+              {quickBusy ? "识别并生成面试官中…" : "识别并开始面试"}
+            </Button>
+            {jdQuickPreview && (
+              <img
+                src={jdQuickPreview}
+                alt="JD 截图预览"
+                className="h-16 rounded-[8px] border border-line object-contain"
+              />
+            )}
+          </div>
+          <p className="text-[11px] text-faint mt-2">
+            图片在本机用 macOS Vision 识别（Swift），不会上传到任何服务；识别结果会存入档案供后续复用。
+          </p>
+        </Card>
       </div>
     );
   }
@@ -281,6 +345,31 @@ export default function InterviewPage() {
         </span>
       </div>
       <Progress value={(index + 1) / total} max={1} />
+
+      {interviewer && (
+        <Card className="!py-4">
+          <div className="flex items-start gap-3">
+            <div className="h-11 w-11 rounded-full bg-accent text-white grid place-items-center text-[17px] font-bold shrink-0">
+              {interviewer.name.slice(0, 1)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[14px] font-bold">{interviewer.name}</span>
+                <Badge tone="accent">{interviewer.role_title}</Badge>
+              </div>
+              <div className="text-[11.5px] text-muted mt-0.5">{interviewer.tone}</div>
+              <p className="text-[12.5px] text-ink-soft mt-1.5">{interviewer.greeting}</p>
+              {interviewer.focus?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {interviewer.focus.slice(0, 5).map((f, i) => (
+                    <Badge key={i}>{f}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <QuestionCard question={current} />
 

@@ -43,6 +43,14 @@ export interface JdAnalysis {
   };
 }
 
+export interface Interviewer {
+  name: string;
+  role_title: string;
+  focus: string[];
+  tone: string;
+  greeting: string;
+}
+
 export interface Profile {
   profile_key: string;
   target_role: string;

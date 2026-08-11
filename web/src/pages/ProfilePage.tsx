@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Save, Sparkles } from "lucide-react";
+import { ImageUp, RefreshCw, Save, Sparkles } from "lucide-react";
 import { api } from "../lib/api";
 import type { JdAnalysis, Profile } from "../lib/types";
 import { Badge, Button, Card, Field, Input, SectionTitle, Spinner, TextArea } from "../components/ui";
@@ -11,6 +11,9 @@ export default function ProfilePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [jdFile, setJdFile] = useState<File | null>(null);
+  const [jdPreview, setJdPreview] = useState<string | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
 
   useEffect(() => {
     api.getProfile().then(setProfile).catch(() => undefined);
@@ -50,6 +53,22 @@ export default function ProfilePage() {
       setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function ocrJd() {
+    if (!jdFile) return;
+    setOcrBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await api.ocrJdImage(jdFile);
+      patch({ jd_text: res.text });
+      setMessage("图片识别完成，已填入 JD 文本。点击「分析目标 JD」生成岗位画像与面试官。");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOcrBusy(false);
     }
   }
 
@@ -128,6 +147,39 @@ export default function ProfilePage() {
           </Button>
         </div>
         <div className="mt-4 space-y-3">
+          <div>
+            <label className="label">JD 图片识别（截图 / 拍照）</label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="btn btn-secondary cursor-pointer">
+                <ImageUp size={14} />
+                选择 JD 图片
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setJdFile(f);
+                    setJdPreview(f ? URL.createObjectURL(f) : null);
+                  }}
+                />
+              </label>
+              <Button variant="secondary" onClick={ocrJd} disabled={ocrBusy || !jdFile}>
+                <Sparkles size={14} />
+                {ocrBusy ? "识别中…" : "识别图片中的 JD"}
+              </Button>
+              {jdPreview && (
+                <img
+                  src={jdPreview}
+                  alt="JD 截图预览"
+                  className="h-20 rounded-[8px] border border-line object-contain"
+                />
+              )}
+            </div>
+            <p className="text-[11px] text-faint mt-1.5">
+              识别结果会填入下方 JD 文本框（OCR 基于 macOS Vision，本机执行，图片不上传任何服务）。
+            </p>
+          </div>
           <Field label="目标岗位描述（JD）">
             <TextArea
               className="min-h-[110px]"
