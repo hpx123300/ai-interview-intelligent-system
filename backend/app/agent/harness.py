@@ -6,6 +6,8 @@ from typing import Callable
 from openai import OpenAI
 
 from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from ..llm_utils import with_retry
+from ..profile import ProfileStore, profile_context_text
 from .loop import AgentError, AgentLoop, strip_thought
 from .memory import Memory
 from .roles import (
@@ -38,6 +40,7 @@ class RouterAgent:
     def _record(self, step: str, content: str) -> None:
         self.trace.append({"step": step, "content": content})
 
+    @with_retry()
     def route(
         self,
         user_message: str,
@@ -96,10 +99,13 @@ class MultiAgentHarness:
     def __init__(self, memory: Memory | None = None):
         self.memory = memory or Memory("default")
         self.router = RouterAgent(self.memory)
+        profile = ProfileStore().load()
+        profile_text = profile_context_text(profile)
+        profile_block = f"\n\n【候选人档案（结合真实经历出题、点评与给建议，不要照抄）】\n{profile_text}"
         self.specialists: dict[str, AgentLoop] = {
-            "interviewer": AgentLoop("模拟面试官", INTERVIEWER_PROMPT, INTERVIEWER_TOOLS, INTERVIEWER_FUNCS, self.memory),
+            "interviewer": AgentLoop("模拟面试官", INTERVIEWER_PROMPT + profile_block, INTERVIEWER_TOOLS, INTERVIEWER_FUNCS, self.memory),
             "tutor": AgentLoop("八股讲师", TUTOR_PROMPT, TUTOR_TOOLS, TUTOR_FUNCS, self.memory),
-            "career": AgentLoop("求职顾问", CAREER_PROMPT, CAREER_TOOLS, CAREER_FUNCS, self.memory),
+            "career": AgentLoop("求职顾问", CAREER_PROMPT + profile_block, CAREER_TOOLS, CAREER_FUNCS, self.memory),
         }
         self.trace: list[dict] = []
 

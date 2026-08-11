@@ -34,6 +34,8 @@ from backend.app.interview_store import (  # noqa: E402
     save_qa,
     update_qa,
 )
+from backend.app.profile import DEFAULT_PROFILE, ProfileStore, profile_context_text  # noqa: E402
+from backend.app.review_store import create_review, delete_review, list_reviews  # noqa: E402
 
 init_db()
 
@@ -48,7 +50,9 @@ PROFILE_KEY = "local"
 MODE_CHAT = "自由对话"
 MODE_INTERVIEW = "模拟面试"
 MODE_REVIEW = "面经复盘"
+MODE_WAR = "求职作战室"
 MODE_HISTORY = "历史报告"
+MODE_PROFILE = "我的档案"
 
 st.set_page_config(page_title="面试备战助手", page_icon="📋", layout="wide")
 
@@ -325,10 +329,11 @@ def render_report(report: dict, comparison: dict | None = None) -> None:
 
 
 def render_question_card(q: dict, index: int, total: int) -> None:
+    topic = "项目深挖" if q.get("topic") == "project" else q.get("topic", "")
     st.markdown(
         f"""
         <div class="panel q-panel">
-            <div class="q-meta">第 {index} / {total} 题 · {html.escape(q.get('topic', ''))} · {html.escape(q.get('level', ''))}</div>
+            <div class="q-meta">第 {index} / {total} 题 · {html.escape(topic)} · {html.escape(q.get('level', ''))}</div>
             <div class="q-text">{html.escape(q.get('question', ''))}</div>
             <div class="q-hint">提示：{html.escape(q.get('hint', ''))}</div>
         </div>
@@ -446,8 +451,10 @@ def _start_interview() -> None:
     manager = InterviewManager()
     direction = st.session_state["iv_direction"]
     count = int(st.session_state["iv_count"])
+    profile = ProfileStore(PROFILE_KEY).load()
     with st.spinner(f"正在为「{direction}」方向出题…"):
-        questions = manager.generate_question_list(direction, count)
+        questions = manager.generate_question_list(direction, count, profile=profile)
+        project_count = sum(1 for q in questions if q.get("topic") == "project")
         iid = f"iv-{uuid.uuid4().hex[:8]}"
         create_interview(iid, direction)
         first = questions[0]
@@ -471,6 +478,7 @@ def _start_interview() -> None:
             "reference": "",
             "report": None,
             "comparison": None,
+            "project_count": project_count,
         }
     st.rerun()
 
@@ -570,7 +578,7 @@ def render_interview_tab() -> None:
             """
             <div class="panel">
                 <div class="panel-title">开始一场模拟面试</div>
-                <div class="panel-desc">面试官按方向出题 → 你逐题作答 → 面试官点评并追问 → 全部答完后生成整场评分报告与历史对比。</div>
+                <div class="panel-desc">面试官按方向出题 → 你逐题作答 → 面试官点评并追问 → 全部答完后生成整场评分报告与历史对比。已绑定你的个人档案，题目会结合真实项目深挖（可在「我的档案」里维护）。</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -591,7 +599,8 @@ def render_interview_tab() -> None:
 
     total = len(iv["questions"])
     index = iv["index"] + 1
-    st.markdown(f'<div class="small" style="display:flex;justify-content:space-between"><span>{iv["direction"]}</span><span>{index} / {total}</span></div>', unsafe_allow_html=True)
+    project_note = f' · 含 {iv.get("project_count", 0)} 道项目深挖题' if iv.get("project_count") else ""
+    st.markdown(f'<div class="small" style="display:flex;justify-content:space-between"><span>{iv["direction"]}{project_note}</span><span>{index} / {total}</span></div>', unsafe_allow_html=True)
     st.progress(min(iv["index"] / total, 1.0))
 
     current = iv["questions"][iv["index"]]
@@ -677,6 +686,8 @@ def render_review_tab() -> None:
                 except InterviewError as exc:
                     st.error(f"复盘失败：{exc}")
                     return
+            create_review(PROFILE_KEY, text.strip(), result)
+            st.caption("已保存到「求职作战室」的历史复盘，可随时回看。")
             st.session_state["review_result"] = result
     result = st.session_state.get("review_result")
     if result:
@@ -689,6 +700,191 @@ def render_review_tab() -> None:
         with c2:
             st.markdown('<div class="report-sec"><div class="title">暴露的问题</div>' + _ul(result.get("weaknesses", [])) + "</div>", unsafe_allow_html=True)
             st.markdown('<div class="report-sec"><div class="title">行动计划</div>' + _ul(result.get("action_plan", [])) + "</div>", unsafe_allow_html=True)
+
+
+# ---------------- 求职作战室 ----------------
+def _dimension_averages(reports: list[dict]) -> dict[str, float]:
+    dims: dict[str, list[float]] = {d: [] for d in EVAL_DIMENSIONS}
+    for r in reports:
+        dim = r.get("dimensions") or {}
+        for d in EVAL_DIMENSIONS:
+            val = dim.get(d)
+            if isinstance(val, (int, float)):
+                dims[d].append(float(val))
+    return {d: (sum(vals) / len(vals) if vals else 0.0) for d, vals in dims.items()}
+
+
+def render_war_room_tab() -> None:
+    st.markdown(
+        """
+        <div class="panel">
+            <div class="panel-title">求职作战室</div>
+            <div class="panel-desc">面试场次、得分趋势、薄弱维度与待办清单都在这里。完成模拟面试与面经复盘后自动更新。</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    rows = [i for i in list_interviews(PROFILE_KEY) if i["status"] == "finished"]
+    reports: list[dict] = []
+    for i in rows:
+        row = get_interview(i["id"])
+        if row and row["report"]:
+            try:
+                reports.append({"interview": i, "report": json.loads(row["report"])})
+            except Exception:
+                pass
+
+    scores = [int(r["report"].get("total_score", 0) or 0) for r in reports]
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("完成场次", len(scores))
+    with c2:
+        st.metric("平均分", round(sum(scores) / len(scores), 1) if scores else "—")
+    with c3:
+        st.metric("最高分", max(scores) if scores else "—")
+    with c4:
+        st.metric("最近一次", scores[-1] if scores else "—")
+
+    if not scores:
+        st.info("还没有已完成场次。去「模拟面试」完成一场，或先「面经复盘」一次真实面试，这里就会长出你的成长曲线。")
+        return
+
+    st.markdown('<div class="section-title">得分趋势</div>', unsafe_allow_html=True)
+    ordered = sorted(reports, key=lambda r: r["interview"]["finished_at"])
+    st.line_chart({"得分": [int(r["report"].get("total_score", 0) or 0) for r in ordered]})
+
+    st.markdown('<div class="section-title">薄弱维度</div>', unsafe_allow_html=True)
+    avg = _dimension_averages([r["report"] for r in reports])
+    weak = sorted(avg.items(), key=lambda kv: kv[1])[:3]
+    for d, v in weak:
+        st.markdown(f'<div class="small" style="display:flex;justify-content:space-between"><span>{d}</span><span>{round(v, 1)}</span></div>', unsafe_allow_html=True)
+        st.progress(min(v, 100) / 100)
+    st.caption("优先补分最低的维度，配合「历史报告」定位薄弱环节。")
+
+    st.markdown('<div class="section-title">待办清单（来自评分建议 + 复盘行动计划）</div>', unsafe_allow_html=True)
+    suggestions: list[str] = []
+    for r in reports[-3:]:
+        suggestions.extend(str(s) for s in (r["report"].get("suggestions", []) or []))
+    for rv in list_reviews(PROFILE_KEY, limit=5):
+        suggestions.extend(str(s) for s in (rv.get("action_plan", []) or []))
+    seen: set[str] = set()
+    todos = [s for s in suggestions if not (s in seen or seen.add(s))]
+    done_key = "war_todo_done"
+    st.session_state.setdefault(done_key, set())
+    if not todos:
+        st.markdown('<div class="muted">暂无待办，完成一场面试或一次复盘后会自动生成。</div>', unsafe_allow_html=True)
+    for i, item in enumerate(todos):
+        checked = st.checkbox(item, key=f"todo_{i}", value=i in st.session_state[done_key])
+        if checked:
+            st.session_state[done_key].add(i)
+        else:
+            st.session_state[done_key].discard(i)
+    if todos and st.button("清空勾选"):
+        st.session_state[done_key] = set()
+        st.rerun()
+
+    reviews = list_reviews(PROFILE_KEY)
+    if reviews:
+        st.markdown(f'<div class="section-title">历史复盘（{len(reviews)}）</div>', unsafe_allow_html=True)
+        for rv in reviews:
+            label = f"{rv['created_at'][:16].replace('T', ' ')} · {rv['summary'][:28]}"
+            with st.expander(label):
+                if rv.get("source_text"):
+                    with st.expander("面试经历原文"):
+                        st.markdown(rv["source_text"])
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown('<div class="report-sec"><div class="title">亮点</div>' + _ul(rv.get("highlights", [])) + "</div>", unsafe_allow_html=True)
+                    st.markdown('<div class="report-sec"><div class="title">必会知识点</div>' + _ul(rv.get("key_points", [])) + "</div>", unsafe_allow_html=True)
+                with c2:
+                    st.markdown('<div class="report-sec"><div class="title">暴露的问题</div>' + _ul(rv.get("weaknesses", [])) + "</div>", unsafe_allow_html=True)
+                    st.markdown('<div class="report-sec"><div class="title">行动计划</div>' + _ul(rv.get("action_plan", [])) + "</div>", unsafe_allow_html=True)
+                if st.button("删除本条", key=f"del_rv_{rv['id']}"):
+                    delete_review(rv["id"])
+                    st.rerun()
+
+
+# ---------------- 我的档案 ----------------
+MAX_PROJECTS = 3
+
+
+def render_profile_tab() -> None:
+    store = ProfileStore(PROFILE_KEY)
+    version = st.session_state.setdefault("profile_version", 0)
+    if f"profile_form_{version}" not in st.session_state:
+        st.session_state[f"profile_form_{version}"] = store.load()
+    form = st.session_state[f"profile_form_{version}"]
+    projects = form.get("projects") or []
+
+    st.markdown(
+        """
+        <div class="panel">
+            <div class="panel-title">我的档案</div>
+            <div class="panel-desc">填一次，模拟面试就会结合你的真实项目出深挖题，求职顾问也会给更贴合的规划建议。项目尽量写量化成果（F1、接口数、数据量），面试官最吃这一套。</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    c1, c2 = st.columns([3, 1])
+    with c2:
+        if st.button("用默认示例填充", use_container_width=True):
+            st.session_state[f"profile_form_{version}"] = DEFAULT_PROFILE
+            st.session_state["profile_version"] = version + 1
+            st.rerun()
+
+    with st.form("profile_form"):
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            target_role = st.text_input("目标岗位", value=form.get("target_role", ""), key=f"pf_role_{version}")
+        with cc2:
+            target_direction = st.text_input("目标方向", value=form.get("target_direction", ""), key=f"pf_dir_{version}")
+        skills = st.text_input("技能栈（逗号分隔）", value=", ".join(form.get("skills") or []), key=f"pf_skills_{version}")
+        weak = st.text_input("薄弱点（逗号分隔）", value=", ".join(form.get("weak_areas") or []), key=f"pf_weak_{version}")
+        st.markdown('<div class="section-title" style="margin-top:8px">项目经历（最多 3 个）</div>', unsafe_allow_html=True)
+
+        filled: list[dict] = []
+        for i in range(MAX_PROJECTS):
+            p = projects[i] if i < len(projects) else {}
+            st.markdown(f"**项目 {i + 1}**")
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                name = st.text_input("项目名称", value=p.get("name", ""), key=f"pf_p{i}_name_{version}")
+            with cc2:
+                tech = st.text_input("技术栈", value=p.get("tech_stack", ""), key=f"pf_p{i}_tech_{version}")
+            desc = st.text_input("一句话描述", value=p.get("description", ""), key=f"pf_p{i}_desc_{version}")
+            cc3, cc4 = st.columns(2)
+            with cc3:
+                metrics = st.text_input("量化成果", value=p.get("metrics", ""), key=f"pf_p{i}_metrics_{version}", placeholder="如：F1 0.92 / 接口 8 组 / 18 万条数据")
+            with cc4:
+                story = st.text_input("深挖点 / 故事", value=p.get("story", ""), key=f"pf_p{i}_story_{version}", placeholder="技术决策、踩坑或面试官会追问的点")
+            if name.strip():
+                filled.append(
+                    {
+                        "name": name.strip(),
+                        "tech_stack": tech.strip(),
+                        "description": desc.strip(),
+                        "metrics": metrics.strip(),
+                        "story": story.strip(),
+                    }
+                )
+        submitted = st.form_submit_button("保存档案", type="primary")
+
+    if submitted:
+        saved = store.save(
+            {
+                "target_role": target_role.strip(),
+                "target_direction": target_direction.strip(),
+                "skills": [s.strip() for s in skills.split(",") if s.strip()],
+                "weak_areas": [s.strip() for s in weak.split(",") if s.strip()],
+                "projects": filled,
+            }
+        )
+        st.session_state[f"profile_form_{version}"] = saved
+        st.success("档案已保存：模拟面试将按你的目标岗位与项目经历个性化出题。")
+
+    st.markdown('<div class="section-title">档案预览（将注入面试官 / 求职顾问）</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="panel" style="white-space:pre-wrap;font-size:13px;line-height:1.8">{html.escape(profile_context_text(form))}</div>', unsafe_allow_html=True)
 
 
 # ---------------- 历史报告 ----------------
@@ -770,7 +966,7 @@ with header_left:
 with header_right:
     mode = st.segmented_control(
         "模式",
-        [MODE_CHAT, MODE_INTERVIEW, MODE_REVIEW, MODE_HISTORY],
+        [MODE_CHAT, MODE_INTERVIEW, MODE_REVIEW, MODE_WAR, MODE_HISTORY, MODE_PROFILE],
         key="mode",
         label_visibility="collapsed",
         default=MODE_CHAT,
@@ -787,7 +983,11 @@ elif mode == MODE_INTERVIEW:
     render_interview_tab()
 elif mode == MODE_REVIEW:
     render_review_tab()
-else:
+elif mode == MODE_WAR:
+    render_war_room_tab()
+elif mode == MODE_HISTORY:
     render_history_tab()
+else:
+    render_profile_tab()
 
 st.markdown('<div class="site-footer">面试备战助手 · 面试记录保存在本地 SQLite</div>', unsafe_allow_html=True)

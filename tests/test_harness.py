@@ -46,7 +46,7 @@ def test_router_delegates_to_interviewer():
 
     def fake_create(**kw):
         system = kw["messages"][0]["content"]
-        if "主管" in system:
+        if "负责判断用户意图" in system:
             return make_chat_response(
                 make_message(None, [make_tool_call("delegate", {"agent": "interviewer", "task": "模拟一场 Python 面试"})])
             )

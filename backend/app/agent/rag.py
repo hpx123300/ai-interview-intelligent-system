@@ -18,6 +18,18 @@ try:
 except Exception:  # pragma: no cover
     jieba = None
 
+_EMBEDDING_MODEL = None
+
+
+def _get_embedding_model():
+    """模块级缓存 embedding 模型单例，避免每次检索重复加载模型。"""
+    global _EMBEDDING_MODEL
+    if _EMBEDDING_MODEL is None:
+        from sentence_transformers import SentenceTransformer
+
+        _EMBEDDING_MODEL = SentenceTransformer("moka-ai/m3e-base")
+    return _EMBEDDING_MODEL
+
 
 def _split_chunks(text: str, source: str) -> list[dict]:
     """按 Markdown 标题（# / ## / ###）分块，保留章节上下文。"""
@@ -74,13 +86,12 @@ class KnowledgeBase:
             import numpy as np
             from sentence_transformers import SentenceTransformer
 
-            model_name = "moka-ai/m3e-base"
             meta_path = RAG_INDEX_DIR / "meta.json"
             if meta_path.exists() and json.loads(meta_path.read_text()).get("fingerprint") == self._fingerprint:
                 self._embeddings = np.load(RAG_INDEX_DIR / "embeddings.npy")
                 self._index = faiss.read_index(str(RAG_INDEX_DIR / "index.faiss"))
             else:
-                model = SentenceTransformer(model_name)
+                model = _get_embedding_model()
                 texts = [f"{c['title']}\n{c['text']}" for c in self.chunks]
                 self._embeddings = model.encode(texts, normalize_embeddings=True)
                 self._index = faiss.IndexFlatIP(self._embeddings.shape[1])
@@ -99,12 +110,11 @@ class KnowledgeBase:
 
     def _vector_search(self, query: str, k: int) -> list[dict]:
         import numpy as np
-        from sentence_transformers import SentenceTransformer
 
         if self._embeddings is None:
-            model = SentenceTransformer("moka-ai/m3e-base")
+            model = _get_embedding_model()
             self._embeddings = model.encode([f"{c['title']}\n{c['text']}" for c in self.chunks], normalize_embeddings=True)
-        q = SentenceTransformer("moka-ai/m3e-base").encode([query], normalize_embeddings=True)
+        q = _get_embedding_model().encode([query], normalize_embeddings=True)
         scores, idxs = self._index.search(np.asarray(q, dtype="float32"), min(k, len(self.chunks)))
         return [dict(self.chunks[i], score=float(scores[0][j])) for j, i in enumerate(idxs[0])]
 

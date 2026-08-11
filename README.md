@@ -1,22 +1,26 @@
 # 🎓 AI 面试备战助手
 
-面向 AI 开发实习的多 Agent + RAG 面试陪练应用，包含 **完整面试闭环**：
+面向「大模型 / AI 应用开发」第一次实习的多 Agent + RAG 面试陪练应用。它不是一个通用聊天玩具，而是**绑定你个人档案**的陪练：面试官会根据你的真实项目深挖追问，做完面试给出结构化评分与成长曲线，面经复盘自动归档成行动清单。
 
-- **自由对话**：主管 Agent 路由，三个专员（模拟面试官 / 八股讲师 / 求职顾问）协作，Function Calling 驱动工具调用，RAG 知识库提供有依据的回答
-- **模拟面试**：面试官按方向出题（题库检索 + 大模型定制）→ 你逐题作答 → 面试官点评并深挖追问 → 结束整场评分
-- **整场评分**：考核官基于完整问答生成结构化报告（总分 + 正确性/深度/结构/表达/风险意识 5 维度 + 亮点/不足/缺失关键点/改进建议）
-- **历史对比**：与历史场次做维度级对比，输出进步项、退步项、稳定项、优先加强建议
-- **面经复盘**：粘贴真实面试经历，AI 生成亮点、问题、必会知识点与行动清单
-- **历史报告**：所有场次的评分与问答记录保存在本地 SQLite，随时回看
+## 它解决了什么
 
-## 技术栈
+第一次找实习的人通常有四个痛点，这个项目逐一对应：
 
-- **Agent**：手写多 Agent Harness（主管路由 + 3 专员），通用 Function Calling 循环（AgentLoop），统一轨迹追踪；面试闭环为独立的状态机模块（InterviewManager：出题/点评追问/评分/对比/复盘，结构化 JSON 输出）
-- **RAG**：Markdown 标题感知分块 + 检索；安装 `requirements-rag.txt` 后启用 **关键词 + 向量 RRF 混合检索**（FAISS + m3e，索引持久化 + 文档指纹重建），未安装时自动降级 jieba 关键词
-- **后端**：SQLite（会话历史 + 面试场次/问答记录持久化，跨轮记忆回填）
-- **LLM**：DeepSeek（OpenAI 兼容，流式输出）
-- **前端**：Streamlit 界面（自由对话 / 模拟面试 / 面经复盘 / 历史报告）
-- **测试与评估**：pytest（14 项）+ `scripts/eval_agent.py`（路由/工具/完整率）+ `scripts/eval_rag.py`（Recall@3/MRR）+ `scripts/eval_interview.py`（出题/点评/评分/复盘完整率）
+| 痛点 | 项目的解法 |
+| --- | --- |
+| 没人陪练、练习没反馈 | 主管 Agent 路由，模拟面试官 / 八股讲师 / 求职顾问三个专员协作，Function Calling 驱动真实工具调用 |
+| 复习没重点、八股全靠背 | RAG 知识库（8 份文档 / 90 道题库）提供有依据的讲解；关键词 + 向量 RRF 混合检索，Recall@K / MRR 可量化 |
+| 面试必问项目，但不会讲 | 「我的档案」绑定你的真实项目，面试自动插入约 30% 项目深挖题（技术选型 / 难点 / 量化 / 失败与改进） |
+| 练了没进步、复盘靠感觉 | 整场评分（5 维度）+ 历史对比 + 求职作战室（得分趋势 / 薄弱维度 / 待办清单 / 复盘归档） |
+
+## 技术栈与亮点
+
+- **手写多 Agent Harness**：主管路由 + 三个专员，通用 Function Calling 循环（AgentLoop），统一轨迹追踪，不依赖 LangGraph——能讲清 tool_calls 解析、路由、记忆注入、容错与评估
+- **RAG 混合检索**：Markdown 标题感知分块；关键词（jieba）+ 向量（FAISS + m3e）RRF 融合，索引持久化 + 文档指纹重建；embedding 模型单例缓存，无网自动降级关键词
+- **面试闭环状态机**：出题 → 逐题作答 → 点评追问 → 整场评分 → 历史对比 → 面经复盘，每环节结构化 JSON，落库可回看
+- **个性化档案**：SQLite 持久化，档案注入面试官 / 求职顾问提示词，出题结合真实项目
+- **工程健壮性**：LLM 调用指数退避重试、JSON 解析兜底、多级降级（题库兜底出题、关键词兜底向量检索）
+- **测试与评估**：18 项 pytest（路由 / 专员权限 / 记忆 / RAG / 面试闭环 / 档案 / 复盘）+ 3 个离线 eval 脚本
 
 ## 快速开始
 
@@ -31,54 +35,83 @@ python3 -m venv .venv
 .venv/bin/streamlit run ui/app.py
 ```
 
-打开 http://localhost:8501 即可使用。示例提问：
+打开 http://localhost:8501，建议使用顺序：
+1. **我的档案**：填目标岗位 + 技能栈 + 三个真实项目（投满分 BERT / 本地知识库问答 / 本 Agent）
+2. **模拟面试**：选方向开始，会看到「含 N 道项目深挖题」
+3. **自由对话**：试试「讲讲 RAG 的原理」「广州有哪些大模型实习」
+4. **求职作战室**：几场之后看趋势、薄弱维度与待办清单
 
-- 模拟一场 Python 后端面试
-- 讲讲 RAG 的原理
-- 广州有哪些 AI 开发实习
-
-进入「模拟面试」模式可以体验完整面试闭环：选择方向与题量 → 逐题作答 → 点评追问 → 整场评分与历史对比。
-
-## 可选：开启向量检索 RAG
-
+可选开启向量检索 RAG（首次运行会下载 m3e-base，需要网络）：
 ```bash
 .venv/bin/pip install -r requirements-rag.txt
 ```
-
-首次运行会自动下载 m3e-base 并构建 FAISS 索引（需要网络），之后检索走「关键词 + 向量 RRF 混合召回」；未安装时自动用 jieba 关键词检索。
 
 ## 目录结构
 
 ```
 backend/app/
 ├── agent/
-│   ├── loop.py      # 通用 Agent 循环（Function Calling 引擎）
-│   ├── roles.py     # 主管 + 3 专员提示词与工具子集
-│   ├── harness.py   # 多 Agent 编排（主管路由 + 专员执行）
-│   ├── memory.py    # 会话记忆（SQLite 回填）
-│   └── rag.py       # RAG 检索（关键词/向量 RRF 混合，自动降级）
-├── interview.py      # 面试闭环：出题/点评追问/整场评分/历史对比/面经复盘
-├── interview_store.py# 面试场次与问答记录持久化
-├── tools/           # 工具注册中心（题库/岗位库/知识库检索）
-├── cards.py         # 工具结果 -> 前端卡片
-└── db.py / chat_history.py  # SQLite 会话持久化
-ui/app.py            # Streamlit 界面（自由对话 / 模拟面试 / 面经复盘 / 历史报告）
-data/knowledge/      # 面试八股知识库（Python/数据库/网络/OS/AI/求职）
-data/questions.json  # 面试题库（python/database/network/os/ai/algorithm/project）
-data/jobs.json       # 实习岗位库
-scripts/eval_agent.py / eval_rag.py / eval_interview.py  # 量化评估
-tests/               # pytest（路由/专员/记忆/RAG/面试闭环）
+│   ├── loop.py          # 通用 Agent 循环（Function Calling 引擎，带重试）
+│   ├── roles.py         # 主管 + 3 专员提示词与工具子集
+│   ├── harness.py       # 多 Agent 编排（档案注入 + 路由 + 轨迹）
+│   ├── memory.py        # 会话记忆（SQLite 回填）
+│   └── rag.py           # RAG 检索（关键词/向量 RRF，模型单例缓存）
+├── interview.py         # 面试闭环：出题（含项目深挖）/点评/评分/对比/复盘
+├── interview_store.py   # 面试场次与问答持久化
+├── profile.py           # 个人档案（目标岗位/技能栈/项目经历）
+├── review_store.py      # 面经复盘持久化
+├── llm_utils.py         # LLM 指数退避重试
+├── tools/               # 工具注册中心（题库/岗位库/知识库检索）
+└── db.py                # SQLite 表结构（会话/面试/档案/复盘）
+ui/app.py                # Streamlit：自由对话/模拟面试/面经复盘/求职作战室/历史报告/我的档案
+data/knowledge/          # 8 份面试知识库（约 340 行）
+data/questions.json      # 90 道题库（python/database/network/os/ai/algorithm/project）
+data/jobs.json           # 16 条实习岗位库
+scripts/                 # eval_agent / eval_rag / eval_interview 离线评估
+tests/                   # 18 项 pytest
 ```
 
-## 架构一句话
+## 架构
 
-自由对话：用户消息 → **主管 Agent**（意图路由）→ 指派 **模拟面试官 / 八股讲师 / 求职顾问** → 专员通过 **Function Calling** 调用工具（抽题 / 查岗位 / RAG 检索）→ 基于真实数据流式回答，全程轨迹可追溯。
-
-模拟面试：**出题（题库 RAG + 大模型定制）** → **逐题作答 + 点评追问** → **考核 Agent 整场评分** → **历史对比 Agent 成长分析**，每个环节输出结构化 JSON，落库可回看。
+```mermaid
+flowchart LR
+    U[用户] --> R[主管 Agent 路由]
+    R -->|delegate| I[模拟面试官]
+    R -->|delegate| T[八股讲师]
+    R -->|delegate| C[求职顾问]
+    I --> Q[query_question 题库]
+    I --> K[search_knowledge RAG]
+    C --> J[query_job 岗位库]
+    C --> K
+    T --> K
+    K --> KB[(知识库 + FAISS)]
+    Q --> QB[(questions.json)]
+    J --> JB[(jobs.json)]
+    P[个人档案] -.注入提示词与出题.-> I
+    P -.-> C
+    I --> S[面试闭环状态机]
+    S --> V[评分/对比/复盘]
+    V --> DB[(SQLite)]
+    DB --> W[求职作战室]
+```
 
 ## 面试怎么讲
 
-- 为什么手写 Harness 不用 LangGraph：理解底层（tool_calls 解析、路由、记忆注入），避免框架黑盒
-- RAG 混合检索：关键词 + 向量 RRF 融合，兼顾精确匹配与语义召回；评估指标 Recall@3 / MRR 可量化
-- 多 Agent 权衡：职责清晰可扩展，代价是更多 LLM 调用与延迟，需要路由与稳定性设计
-- 面试闭环设计：状态机管理流程（出题→作答→追问→评分），考核与面试解耦，历史对比让"训练效果"可感知
+这个项目本身是你面试的最大素材，建议按这个顺序讲：
+
+1. **一句话定位**：面向 AI 开发实习的多 Agent + RAG 面试陪练，绑定了我的真实项目做个性化深挖，并给出可量化的成长曲线。
+2. **为什么手写 Harness 不用 LangGraph**：学习项目目标是理解底层——tool_calls 解析、路由、记忆注入、轨迹。手写代码可控、可测试、可讲原理；工程上也会评估框架，这是取舍能力的体现。
+3. **RAG 为什么用混合检索 + RRF**：关键词擅长精确匹配（专有名词、编号），向量擅长语义召回；RRF 融合两路结果（score = Σ 1/(k+rank)），避免新词/错别字导致召回失败。用 Recall@K / MRR 量化验证，而不是拍脑袋。
+4. **面试闭环怎么设计**：状态机管理「出题→作答→点评→评分」，考核与面试解耦；历史对比让训练效果可感知。
+5. **档案驱动的个性化**：面试官提示词注入候选人档案，出题时插入约 30% 项目深挖题；项目题 LLM 定制失败会自动回退模板，保证流程不中断。
+6. **工程细节与反思**：embedding 模型单例缓存（修掉每次检索重复加载模型的问题）、LLM 重试与多级降级、18 项测试覆盖核心链路；诚实说明边界（并发与安全是二期方向）。
+
+## 面试记录在哪里
+
+所有数据存本地 SQLite（`data/interview.db`）：会话历史、面试场次、问答记录、个人档案、面经复盘，删除对应记录即可清理。
+
+## 进阶方向（二期）
+
+- FastAPI + 独立前端，云端多人使用
+- 简历自动解析 + 岗位匹配度打分
+- 多模型切换与语音面试

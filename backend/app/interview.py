@@ -10,6 +10,7 @@ import re
 from openai import OpenAI
 
 from .config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from .llm_utils import with_retry
 from .tools import query_question, search_knowledge
 
 # 面试方向 -> 题库主题（用于出题检索）
@@ -51,6 +52,7 @@ class InterviewManager:
         self.client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
         self.model = DEEPSEEK_MODEL
 
+    @with_retry()
     def _complete(self, system: str, user: str, temperature: float = 0.3, json_mode: bool = True) -> str:
         kwargs = {
             "model": self.model,
@@ -69,7 +71,7 @@ class InterviewManager:
         return _extract_json(self._complete(system, user, temperature=temperature))
 
     # ---------------- 出题 ----------------
-    def generate_question_list(self, direction: str = "通用开发", count: int = 8) -> list[dict]:
+    def generate_question_list(self, direction: str = "通用开发", count: int = 8, profile: dict | None = None) -> list[dict]:
         """基于题库检索 + LLM 定制生成一套面试题单。"""
         topics = DIRECTION_TOPICS.get(direction, DIRECTION_TOPICS["通用开发"])
         bank: list[dict] = []
@@ -95,23 +97,75 @@ class InterviewManager:
 只输出 JSON：{"questions": [{"question": "...", "topic": "...", "level": "基础/进阶/场景", "hint": "..."}]}"""
         candidates = json.dumps(bank[:20], ensure_ascii=False)
         user = f"面试方向：{direction}\n题库候选：\n{candidates}\n请生成 {count} 道题。"
+        base: list[dict] = []
         try:
             data = self._complete_json(system, user)
+            questions = [q for q in data.get("questions", []) if q.get("question")]
+            if questions:
+                base = questions[:count]
+        except Exception:
+            pass
+        if not base:
+            # 兜底：直接用题库
+            base = [
+                {
+                    "question": b["question"],
+                    "topic": b.get("topic", ""),
+                    "level": b.get("level", ""),
+                    "hint": b.get("hint", ""),
+                }
+                for b in bank[:count]
+            ]
+        # 个性化：结合候选人真实项目插入深挖题（约 30%，至少 1 道）
+        projects = (profile or {}).get("projects") or []
+        if projects:
+            p_count = max(1, min(3, round(count * 0.3)))
+            p_questions = self.generate_project_questions(projects, p_count)
+            if p_questions:
+                base = base[: max(0, count - len(p_questions))] + p_questions
+        return base[:count]
+
+    def generate_project_questions(self, projects: list[dict], count: int = 2) -> list[dict]:
+        """针对候选人真实项目生成深挖题；LLM 失败时回退通用模板。"""
+        if not projects:
+            return []
+        system = """你是资深面试官，负责针对候选人的真实项目经历生成深挖面试题。
+要求：
+1. 题目要具体、能深挖（技术选型、难点排查、量化结果、失败与改进），不要泛泛而问；
+2. 结合候选人的技术栈与量化成果设计追问点；
+3. 每道题给出主题 project、难度 场景 与作答提示（hint）。
+只输出 JSON：{"questions": [{"question": "...", "topic": "project", "level": "场景", "hint": "..."}]}"""
+        briefs = "\n".join(
+            f"- 项目：{p.get('name', '')}；技术栈：{p.get('tech_stack', '')}；描述：{p.get('description', '')}；"
+            f"量化成果：{p.get('metrics', '')}；深挖点：{p.get('story', '')}"
+            for p in projects[:3]
+        )
+        try:
+            data = self._complete_json(system, f"候选人的项目经历：\n{briefs}\n请生成 {count} 道项目深挖题。")
             questions = [q for q in data.get("questions", []) if q.get("question")]
             if questions:
                 return questions[:count]
         except Exception:
             pass
-        # 兜底：直接用题库
-        return [
-            {
-                "question": b["question"],
-                "topic": b.get("topic", ""),
-                "level": b.get("level", ""),
-                "hint": b.get("hint", ""),
-            }
-            for b in bank[:count]
+        templates = [
+            "介绍一下你的项目「{name}」？你负责什么、最终成果如何？",
+            "项目「{name}」里你遇到的最大难点是什么？怎么排查和解决的？",
+            "项目「{name}」为什么选这套技术栈？对比过其他方案吗？",
+            "如果重做项目「{name}」，你会怎么改进？",
         ]
+        result: list[dict] = []
+        for i in range(count):
+            project = projects[i % len(projects)]
+            name = project.get("name") or "该项目"
+            result.append(
+                {
+                    "question": templates[i % len(templates)].format(name=name),
+                    "topic": "project",
+                    "level": "场景",
+                    "hint": "用 STAR 结构讲：背景 → 任务 → 行动 → 结果，突出技术决策与量化数据",
+                }
+            )
+        return result
 
     # ---------------- 点评 + 追问 ----------------
     def feedback_and_followup(self, question: str, answer: str) -> dict:

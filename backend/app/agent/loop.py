@@ -8,6 +8,7 @@ from typing import Callable
 from openai import OpenAI
 
 from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from ..llm_utils import with_retry
 from .memory import Memory
 
 MAX_ITERATIONS = 6
@@ -51,6 +52,7 @@ class AgentLoop:
     def _record(self, step: str, content: str) -> None:
         self.trace.append({"step": step, "content": content})
 
+    @with_retry()
     def _call_llm(self, messages: list[dict]) -> dict:
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -60,6 +62,17 @@ class AgentLoop:
             temperature=self.temperature,
         )
         return resp.choices[0].message
+
+    @with_retry()
+    def _create_stream(self, messages: list[dict]):
+        return self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            tools=self.tools,
+            tool_choice="auto",
+            temperature=self.temperature,
+            stream=True,
+        )
 
     def _execute_tool(self, tool_call) -> str:
         name = tool_call.function.name
@@ -110,14 +123,7 @@ class AgentLoop:
             self._record("think", "正在分析问题并决定是否调用工具…")
             content = ""
             tool_calls: list[dict] = []
-            stream = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                tools=self.tools,
-                tool_choice="auto",
-                temperature=self.temperature,
-                stream=True,
-            )
+            stream = self._create_stream(messages)
             for chunk in stream:
                 choice = chunk.choices[0]
                 delta = choice.delta

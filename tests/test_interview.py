@@ -47,6 +47,43 @@ def test_generate_question_list_falls_back_to_bank():
     assert all(q.get("question") for q in questions)
 
 
+def test_generate_question_list_injects_project_questions():
+    """带档案出题时插入项目深挖题；LLM 失败时回退模板。"""
+
+    def fake_create(**kw):
+        return make_chat_response("这不是 JSON")
+
+    patcher = patch_client(fake_create)
+    try:
+        manager = InterviewManager()
+        profile = {
+            "projects": [
+                {
+                    "name": "投满分 BERT 分类",
+                    "tech_stack": "PyTorch/BERT",
+                    "description": "文本分类",
+                    "metrics": "F1 0.9",
+                    "story": "深挖点",
+                },
+                {
+                    "name": "RAG 知识库问答",
+                    "tech_stack": "LangChain/FAISS",
+                    "description": "本地问答",
+                    "metrics": "Recall@3 0.8",
+                    "story": "深挖点",
+                },
+            ]
+        }
+        questions = manager.generate_question_list("通用开发", 8, profile=profile)
+    finally:
+        patcher.stop()
+
+    assert len(questions) == 8
+    project_qs = [q for q in questions if q.get("topic") == "project"]
+    assert project_qs, "应包含项目深挖题"
+    assert any("投满分" in q["question"] or "RAG 知识库问答" in q["question"] for q in project_qs)
+
+
 def test_feedback_and_followup_parses():
     payload = json.dumps(
         {"feedback": "结论正确，但缺了边界情况。", "followup": "并发高时怎么优化？", "score_hint": "7/10"},

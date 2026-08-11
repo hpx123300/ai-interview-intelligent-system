@@ -65,6 +65,36 @@ class InterviewQA(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
 
+class UserProfile(Base):
+    """候选人档案：目标岗位、技能栈、项目经历（个人画像，驱动个性化出题）。"""
+
+    __tablename__ = "user_profiles"
+
+    profile_key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    target_role: Mapped[str] = mapped_column(String(64), default="")
+    target_direction: Mapped[str] = mapped_column(String(64), default="")
+    skills: Mapped[str] = mapped_column(Text, default="[]")
+    weak_areas: Mapped[str] = mapped_column(Text, default="[]")
+    projects: Mapped[str] = mapped_column(Text, default="[]")
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+
+class InterviewReview(Base):
+    """面经复盘记录：原文 + 结构化复盘结果，供求职作战室回看。"""
+
+    __tablename__ = "interview_reviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    profile_key: Mapped[str] = mapped_column(String(32), index=True)
+    source_text: Mapped[str] = mapped_column(Text, default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    highlights: Mapped[str] = mapped_column(Text, default="[]")
+    weaknesses: Mapped[str] = mapped_column(Text, default="[]")
+    key_points: Mapped[str] = mapped_column(Text, default="[]")
+    action_plan: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
