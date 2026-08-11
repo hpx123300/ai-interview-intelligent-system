@@ -1,0 +1,13 @@
+# 大模型与 Agent
+openai>=1.35.0
+python-dotenv>=1.0
+
+# 数据与检索（jieba 关键词检索兜底；向量检索见 requirements-rag.txt）
+jieba>=0.42
+sqlalchemy>=2.0
+
+# 界面
+streamlit>=1.36
+
+# 测试
+pytest>=8.0

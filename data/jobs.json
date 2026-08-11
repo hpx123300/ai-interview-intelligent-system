@@ -1,0 +1,8 @@
+[
+  {"id": 1, "title": "AI 应用开发实习生", "city": "广州", "direction": "AI", "company": "某互联网大厂", "requirements": "熟悉 Python；了解大模型 API 调用、RAG/Agent；有全栈项目经验优先", "salary": "200-300/天"},
+  {"id": 2, "title": "Python 后端开发实习生", "city": "广州", "direction": "Python", "company": "某 SaaS 公司", "requirements": "熟悉 FastAPI/Django；掌握 MySQL/Redis；了解 Docker 加分", "salary": "150-250/天"},
+  {"id": 3, "title": "AI 产品实习生", "city": "深圳", "direction": "AI", "company": "某 AI 创业公司", "requirements": "了解 LLM 应用场景；会写 Prompt；有产品 Sense 与文档能力", "salary": "200-300/天"},
+  {"id": 4, "title": "大模型应用开发实习生", "city": "深圳", "direction": "AI", "company": "某大模型厂商", "requirements": "熟悉 Function Calling/RAG/Agent 架构；有独立项目；了解评估方法", "salary": "250-400/天"},
+  {"id": 5, "title": "后端开发实习生", "city": "远程", "direction": "Python", "company": "某开源团队", "requirements": "Python/Go；熟悉数据库与缓存；沟通协作好", "salary": "150-250/天"},
+  {"id": 6, "title": "机器学习平台实习生", "city": "杭州", "direction": "AI", "company": "某云计算厂商", "requirements": "了解 ML 基础；熟悉 Python；了解 Docker/K8s 加分", "salary": "200-300/天"}
+]

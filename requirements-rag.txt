@@ -1,0 +1,3 @@
+# 可选：开启向量检索 RAG（FAISS + m3e embedding），体积较大，按需安装
+faiss-cpu>=1.8
+sentence-transformers>=2.6
