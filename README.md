@@ -4,18 +4,19 @@
 
 > 架构借鉴：[DeepInterview](https://github.com/ngoanpv/DeepInterview)（Apache-2.0）的 prep/live/post 三段式与 rubric 评分；[聆悟 ai-interview-platform](https://github.com/yuanzhongqiao/ai-interview-platform)（MIT）的自然语言面试设计与统一评分标准。代码为本项目重写实现。
 
-## 📚 书单（微信读书）
+## 📺 B 站推荐（按技术栈 · 必看章节）
 
-完整书单见 [书单.md](书单.md)，微信读书可搜，按本项目技术栈定制：
+完整 8-10 周学习路线（每阶段对照项目文件）见 [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)。下面直接按本技术栈挑好的课 + 必看章节：
 
-| 优先级 | 书名 | 为什么读 |
+| 技术栈 | B 站课程（点击直达） | 必看章节 |
 | --- | --- | --- |
-| ★★★ | 《大模型应用开发》（鲍亮、李倩） | RAG / Agent / 提示词工程 / 微调 / 应用架构全链路 |
-| ★★★ | 《AI Agent智能体开发实践》（邓立国、邓淇文） | LangChain / MCP / 工具编排，对照手写 Function Calling 循环 |
-| ★★★ | 《流畅的Python（第2版）》（[巴西]卢西亚诺·拉马略） | 生成器 / 装饰器 / 内存模型 / 异步，Python 八股 + Agent 循环底层 |
-| ★★ | 《MySQL必知必会（第2版）》（[美]本·福达） | 数据库高频考点 |
-| ★★（进阶） | 《数据密集型应用系统设计》（[英]Martin Kleppmann） | 索引 / 存储 / 一致性，把 RAG 检索与存储方案讲深 |
-| ★（补充） | 《动手学深度学习（第二版）》（李沐 等） | 官网免费（zh.d2l.ai），补 PyTorch |
+| Python | [黑马程序员 Python 600 集（BV1ex411x7Em）](https://www.bilibili.com/video/BV1ex411x7Em) | 基础语法 → 函数 → 面向对象 → 文件/JSON → 异常处理 |
+| FastAPI | [2026 最新版 FastAPI 从入门到实战（BV1ufgY6MEHJ）](https://www.bilibili.com/video/BV1ufgY6MEHJ) | 路由与参数 → Pydantic 校验 → 文件上传 → ORM 增删改查 |
+| React | [尚硅谷 React 教程（BV1wy4y1D7JT）](https://www.bilibili.com/video/BV1wy4y1D7JT) | JSX/组件 → Hooks（useState/useEffect/useRef）→ fetch 调后端（class 组件可快进） |
+| 大模型原理 | [李宏毅《生成式人工智能导论》（BV1kUoKBAESK）](https://www.bilibili.com/video/BV1kUoKBAESK) | 第 1 讲 生成式 AI 原理 → 第 2 讲 上下文工程 → 第 4 讲 评测生成式 AI |
+| AI Agent | [李宏毅 AI Agent 系列（BV1MJLF6sEQF）](https://www.bilibili.com/video/BV1MJLF6sEQF) | Agent 原理 → Function Calling/工具调用 → 多 Agent 协作 → Agent 评测 |
+| RAG | [黑马 LangChain + LangGraph 实战（BV178w1z7EHQ）](https://www.bilibili.com/video/BV178w1z7EHQ) | RAG 全流程（切块→向量化→检索→生成）→ 混合检索/RRF → Recall@K、MRR 评估 |
+| 工程化 | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6) + 搜「pytest 入门」「GitHub Actions 教程」 | Git 常用命令/分支/远程仓库；pytest fixture/断言；看懂 ci.yml |
 
 ## 它解决了什么
 
