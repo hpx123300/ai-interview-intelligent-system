@@ -8,7 +8,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) | **项目全解**：每个文件的用途 + 技术栈全景 + 从零开始的 0-10 阶段 B 站学习路线（10-12 周，含 BV 直达链接与必看章节）+ 学完自测 10 问 |
+| [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) | **项目全解**：每个文件的用途 + 技术栈全景 + 核心设计深挖（面试问答素材）+ 0-10 阶段 B 站学习路线（10-12 周，BV 直达）+ 整体时间规划 + 面试要点速查 + 学完自测 10 问 |
 | [docs/interview_script.md](docs/interview_script.md) | **面试讲稿**：STAR 话术、技术决策、踩坑与追问应对，背熟它就能把项目讲明白 |
 | [docs/superpowers/specs/](docs/superpowers/specs/) | **架构设计文档**：多 Agent 引擎与 prep/live/post 闭环的设计依据（面试讲"为什么这么设计"） |
 
