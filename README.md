@@ -145,6 +145,109 @@ scripts/                 # eval_agent / eval_rag / eval_interview 离线评估
 tests/                   # 23 项 pytest
 ```
 
+## 📄 每个文件的作用
+
+> 运行后自动生成 `data/interview.db`（SQLite 数据库）与 `data/rag_index/`（向量索引缓存），不在 git 里，不用管。
+> 各目录下的 `__init__.py` 均为 Python 包标记（让目录可以被 import），下面不再重复。
+
+### 根目录
+
+| 文件 | 作用 |
+| --- | --- |
+| `README.md` | 项目门面：痛点、三段式流程、技术栈亮点、量化指标、快速开始。**面试官第一眼就看它** |
+| `start.command` | macOS 双击一键启动：自动建虚拟环境、装依赖、构建前端、启动服务、等就绪后开浏览器；检测到端口占用就直接打开已运行服务 |
+| `.env.example` | 配置模板。复制为 `.env` 后填入 `DEEPSEEK_API_KEY`（也支持 `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` 换其他兼容 OpenAI 协议的大模型） |
+| `.gitignore` | 忽略 `.venv`、`node_modules`、`.env`、`__pycache__`、`data/interview.db`、`data/rag_index` 等 |
+| `LICENSE` | MIT 协议 |
+| `requirements.txt` | 后端基础依赖：FastAPI、Uvicorn、SQLAlchemy、OpenAI SDK、pypdf、python-multipart、pytest、jieba、python-dotenv |
+| `requirements-rag.txt` | 可选 RAG 增强依赖：sentence-transformers + faiss（装了才启用向量检索；不装自动降级纯关键词） |
+| `.github/workflows/ci.yml` | GitHub Actions CI：后端跑 `pytest`，前端跑 `tsc --noEmit + vite build`，push/PR 自动触发 |
+
+### `backend/app/` — 业务逻辑核心（纯 Python，不依赖 Web 框架）
+
+| 文件 | 作用 |
+| --- | --- |
+| `config.py` | 全局配置唯一入口：从 `.env` 读 API Key / Base URL / 模型名，定义数据/知识库/题库/数据库路径；`ensure_dirs()` 自动建目录 |
+| `db.py` | SQLite 持久层：SQLAlchemy ORM 定义会话消息、面试场次、逐题问答、个人档案、面经复盘五张表 |
+| `llm_utils.py` | LLM 调用容错：`with_retry` 装饰器实现指数退避重试（3 次、翻倍等待、上限 8 秒），API 偶发失败不崩 |
+| `tools/__init__.py` | 工具注册中心：声明 Agent 可调用的工具（JSON Schema + 实现）——抽题 / 查岗位 / 检索知识库。新工具只要加一份声明 + 一个函数就能被 Agent 调用 |
+| `profile.py` | 候选人档案：默认档案（目标岗位、技能栈、弱项、2 个真实项目含指标/深挖点）、SQLite 读写、`profile_context_text()` 把档案拼成提示词上下文；简历 PDF 解析逻辑 |
+| `interview.py` | **面试闭环核心（prep/live/post 状态机）**：JD 画像解析、差距分析、面试设计、问题计划（难度/能力/rubric/追问种子）、live 点评评分、post ScoreCard 报告、学习教练；非法 JSON 有正则兜底 |
+| `interview_store.py` | 面试场次存储：创建/读取/更新/删除面试与问答记录，前端历史页和报告页的数据来源 |
+| `review_store.py` | 面经复盘存储：保存/列表/删除复盘结果（摘要、亮点、弱点、要点、行动清单） |
+| `chat_history.py` | 会话历史读写：SQLite 落盘，刷新/重启不丢——"AI 记得上下文"的实现 |
+| `cards.py` | 轨迹转卡片：把 Agent 工具调用轨迹解析成前端可渲染的卡片（知识 / 题目 / 岗位） |
+
+### `backend/app/agent/` — 手写多 Agent 引擎（项目最大亮点，面试重点讲）
+
+| 文件 | 作用 |
+| --- | --- |
+| `core.py` | 对外导出统一入口：`MultiAgentHarness`、`AgentLoop`、`AgentError`、`strip_thought` |
+| `harness.py` | **主管路由**：RouterAgent 判断直接回复还是调 `delegate` 指派专员；MultiAgentHarness 统一调度主管 + 3 专员，注入档案与记忆，记录全程轨迹 |
+| `loop.py` | **通用 Function Calling 循环引擎**（AgentLoop）：多 Agent 共用；解析 tool_calls → 执行 → 回填 → 再生成，最多 6 轮防死循环；非法工具/参数错误/超限都有降级提示。**不依赖 LangGraph，全手写** |
+| `roles.py` | 角色定义：主管路由提示词 + 3 专员提示词（面试官 / 八股讲师 / 求职顾问）+ 各自工具子集和 `delegate` 工具 Schema |
+| `memory.py` | 会话记忆：启动时从 SQLite 回填最近 24 条历史，跨轮不"失忆" |
+| `rag.py` | **RAG 检索**：Markdown 标题感知分块、关键词（jieba）+ 向量（FAISS/m3e）RRF 融合、索引持久化 + 文档指纹重建、embedding 模型单例缓存、无网自动降级关键词 |
+
+### `server/` — API 层
+
+| 文件 | 作用 |
+| --- | --- |
+| `main.py` | FastAPI 全部接口：`/api/chat`（SSE 流式）、`/api/profile`（读写档案）、`/api/profile/analyze-jd`（JD 解析）、`/api/resume/parse`（简历 PDF）、`/api/jd/ocr`（JD 截图 OCR）、`/api/interview/*`、`/api/review/*`、`/api/health`；静态托管前端（SPA 回退） |
+| `ocr_vision.swift` | macOS Vision 本机 OCR 脚本（中英文），读取 JD 截图输出识别文本；不联网、不传图给第三方 |
+
+### `web/` — React 前端
+
+| 文件 | 作用 |
+| --- | --- |
+| `index.html` / `package.json` / `tsconfig.json` / `vite.config.ts` | Vite 入口、前端依赖与脚本、TS 编译配置、Vite 配置（React + Tailwind + 开发代理） |
+| `src/main.tsx` | React 挂载入口 |
+| `src/App.tsx` | 页面路由中枢：按当前页 key 渲染 6 个页面之一 |
+| `src/index.css` | 全局样式（Tailwind v4 入口） |
+| `src/lib/api.ts` | 全部后端 API 封装：统一 fetch + 错误解析 + 类型化返回 |
+| `src/lib/types.ts` | 前后端共享类型：Profile、Question、JdAnalysis、Report、Review、ChatMessage 等 |
+| `src/components/AppShell.tsx` | 应用外壳：侧边导航 + 响应式布局 |
+| `src/components/ScoreCard.tsx` | 面试评分卡组件：能力维度分数展示 |
+| `src/components/ui.tsx` | 通用 UI 组件（按钮、卡片、输入等） |
+| `src/pages/ChatPage.tsx` | 自由对话页：SSE 流式输出 + 工具调用卡片 |
+| `src/pages/InterviewPage.tsx` | 模拟面试页：面试官生成 → 逐题作答 → 评分反馈 → 整场报告 |
+| `src/pages/ReviewPage.tsx` | 复盘页：导入面经 → 生成复盘 + 行动清单 |
+| `src/pages/WarRoomPage.tsx` | 求职作战室：岗位库浏览、规划、进度总览 |
+| `src/pages/HistoryPage.tsx` | 历史记录：过往面试场次与报告回看 |
+| `src/pages/ProfilePage.tsx` | 我的档案：上传简历 PDF 自动解析、编辑技能栈/项目、粘贴 JD 生成画像 |
+| `dist/` | Vite 构建产物（已入库，CI 保证最新） |
+
+### `data/` — 数据资产（RAG 知识库 + 题库 + 岗位库）
+
+| 文件 | 作用 |
+| --- | --- |
+| `knowledge/*.md` | 8 份面试知识库（Python / 数据库 / 网络 / 操作系统 / AI Agent / 面试方法论 / 求职规划 / 项目深挖），RAG 检索数据源 |
+| `packs/*.md` | 岗位问题包 playbook：轮次结构 / 题库 / 考察信号 / 常见坑（AI 应用开发实习 / Python 后端实习），注入出题提示词 |
+| `questions.json` | **98 道面试题**（含主题、难度、参考答案），Agent 抽题与题库兜底出题的数据源 |
+| `jobs.json` | **16 条实习岗位**样本数据，求职顾问查询用 |
+
+### `scripts/` 与 `tests/` — 评估与测试
+
+| 文件 | 作用 |
+| --- | --- |
+| `scripts/eval_rag.py` | RAG 检索质量评测：14 条 query → 期望来源文档，输出 Recall@K / MRR（实测 0.929 / 0.750）。**离线可跑，不需要 API Key** |
+| `scripts/eval_agent.py` | 多 Agent 评测：16 条意图测路由准确率 / 工具准确率 / 回答完整率（实测全 100%）。需要 API Key |
+| `scripts/eval_interview.py` | 面试闭环评测：出题 / 点评追问 / 评分 / 复盘结构完整率。需要 API Key |
+| `tests/conftest.py` | pytest 公共 fixture |
+| `tests/test_harness.py` | 主管路由 / 专员权限 / 记忆注入测试 |
+| `tests/test_interview.py` | prep-live-post 面试闭环测试 |
+| `tests/test_profile.py` | 档案读写 / 简历解析测试 |
+| `tests/test_rag.py` | RAG 分块 / 检索 / 降级测试 |
+| `tests/test_review_store.py` | 复盘存储测试 |
+
+### `docs/` — 文档
+
+| 文件 | 作用 |
+| --- | --- |
+| `docs/PROJECT_GUIDE.md` | 项目全解：逐文件说明、技术栈全景、0-10 阶段 B 站学习路线、学完自测 10 问、一句话简历 |
+| `docs/interview_script.md` | 面试讲解脚本：项目怎么讲、会被问什么、怎么答（"考前押题本"） |
+| `docs/superpowers/specs/*.md` | 架构设计文档：多 Agent 引擎与 prep/live/post 闭环的设计依据 |
+
 ## 架构
 
 ```mermaid
