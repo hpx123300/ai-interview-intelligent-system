@@ -4,6 +4,14 @@
 
 > 架构借鉴：[DeepInterview](https://github.com/ngoanpv/DeepInterview)（Apache-2.0）的 prep/live/post 三段式与 rubric 评分；[聆悟 ai-interview-platform](https://github.com/yuanzhongqiao/ai-interview-platform)（MIT）的自然语言面试设计与统一评分标准。代码为本项目重写实现。
 
+## 📖 项目文档（先看这里）
+
+| 文档 | 内容 |
+| --- | --- |
+| [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) | **项目全解**：每个文件的用途 + 技术栈全景 + 从零开始的 0-10 阶段 B 站学习路线（10-12 周，含 BV 直达链接与必看章节）+ 学完自测 10 问 |
+| [docs/interview_script.md](docs/interview_script.md) | **面试讲稿**：STAR 话术、技术决策、踩坑与追问应对，背熟它就能把项目讲明白 |
+| [docs/superpowers/specs/](docs/superpowers/specs/) | **架构设计文档**：多 Agent 引擎与 prep/live/post 闭环的设计依据（面试讲"为什么这么设计"） |
+
 ## 📺 B 站推荐（按技术栈 · 必看章节）
 
 完整 10-12 周学习路线（每阶段对照项目文件）见 [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)。下面直接按本技术栈挑好的课 + 必看章节：
