@@ -103,10 +103,10 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cd web && npm install && npm run build && cd ..
-.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8001
 ```
 
-打开 http://localhost:8000，建议使用顺序：
+打开 http://localhost:8001，建议使用顺序：
 1. **我的档案**：默认已内置「大学生花钱助手 / 本 Agent」两个真实项目，也可按需修改或上传简历自动解析
 2. **我的档案**：粘贴目标 JD → 保存后自动解析岗位画像与差距分析
 3. **模拟面试**：选方向开始（或「自定义面试设计」一句话生成），会看到「含 N 道项目深挖题」+ 每题的评分标准与追问方向

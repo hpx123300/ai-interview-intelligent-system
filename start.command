@@ -38,22 +38,28 @@ if [ ! -f "web/dist/index.html" ]; then
   cd ..
 fi
 
-# 4. 端口占用检查：如果已经在运行，直接打开浏览器
-if lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "服务已在运行，正在打开浏览器：http://localhost:8000"
-  open http://localhost:8000
-  exit 0
+# 4. 端口占用检查：8001 被本项目占用时直接打开浏览器；被其他程序占用则提示冲突
+if lsof -nP -iTCP:8001 -sTCP:LISTEN >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:8001/api/health >/dev/null 2>&1; then
+    echo "服务已在运行，正在打开浏览器：http://localhost:8001"
+    open http://localhost:8001
+    exit 0
+  else
+    echo "错误：端口 8001 被其他程序占用（不是本项目的服务，请勿直接打开）。"
+    echo "请先关闭占用 8001 的程序（查看：lsof -nP -iTCP:8001），再重新双击本文件。"
+    exit 1
+  fi
 fi
 
 # 5. 后台启动 FastAPI 服务
 echo "正在启动 AI 面试智能系统（新版界面），请稍候…"
-.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000 &
+.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8001 &
 SERVER_PID=$!
 
 # 6. 等服务就绪后再打开浏览器（最多 60 秒）
 READY=0
 for _ in $(seq 1 60); do
-  if curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:8001/api/health >/dev/null 2>&1; then
     READY=1
     break
   fi
@@ -61,10 +67,10 @@ for _ in $(seq 1 60); do
 done
 
 if [ "$READY" = "1" ]; then
-  echo "启动完成，正在打开浏览器：http://localhost:8000"
-  open http://localhost:8000
+  echo "启动完成，正在打开浏览器：http://localhost:8001"
+  open http://localhost:8001
 else
-  echo "服务启动超时，请看上方错误信息；也可手动打开 http://localhost:8000"
+  echo "服务启动超时，请看上方错误信息；也可手动打开 http://localhost:8001"
 fi
 
 # 7. 保持前台运行，关闭本窗口即停止服务
