@@ -21,7 +21,7 @@ def test_profile_save_load_roundtrip():
     store = ProfileStore(TEST_KEY)
     default = store.load()
     assert default["target_role"] == "大模型 / AI 应用开发实习生"
-    assert len(default["projects"]) == 3
+    assert len(default["projects"]) == 2
 
     updated = store.save(
         {

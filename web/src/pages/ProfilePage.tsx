@@ -315,7 +315,7 @@ export default function ProfilePage() {
                 <Input
                   value={p.name}
                   onChange={(e) => patchProject(i, "name", e.target.value)}
-                  placeholder="如：投满分 BERT 分类"
+                  placeholder="如：大学生花钱助手"
                 />
               </Field>
               <Field label="技术栈">

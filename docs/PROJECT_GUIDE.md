@@ -179,7 +179,7 @@ flowchart LR
 
 ## 四、从零开始的 B 站学习路线（核心章节）
 
-> 目标：**8-10 周**从零学到能把这个项目完整讲明白、能应付 AI/大模型实习面试。
+> 目标：**10-12 周**从零学到能把这个项目完整讲明白、能应付 AI/大模型实习面试。
 > 每阶段都标注了「对照本项目哪个文件」，学完立刻回去读对应代码，学得最快。
 > 链接如果失效，直接去 B 站搜括号里的课程名。
 
@@ -191,39 +191,44 @@ flowchart LR
 
 ### 阶段 1：Python 基础（2-3 周）
 
-**课程**：[黑马程序员 Python+AI 零基础入门到大神全套](https://www.bilibili.com/video/BV1sHU9BmEne)（搜索：黑马程序员 Python 零基础）
+**课程**：[黑马程序员 Python 600 集（零基础入门到就业）](https://www.bilibili.com/video/BV1ex411x7Em)（搜索：黑马程序员 Python 零基础）
 
 重点看：
 
 1. 基础语法：变量、分支、循环、函数
-2. 面向对象：类、继承、魔术方法
-3. 文件操作 + JSON：`open()` / `json.loads` / `json.dumps`
-4. 异常处理：`try/except`（本项目 LLM 容错的基础）
-5. 虚拟环境与 pip：`venv` / `pip install`
+2. 数据结构：列表、字典、元组、集合、切片、推导式
+3. 面向对象：类、继承、魔术方法
+4. 文件操作 + JSON：`open()` / `json.loads` / `json.dumps`
+5. 异常处理：`try/except`（本项目 LLM 容错的基础）
+6. 装饰器 / 生成器（面试高频，读 `llm_utils.py` 里的重试装饰器）
+7. 虚拟环境与 pip：`venv` / `pip install`
 
 对照本项目：能读懂 [config.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/config.py)、[llm_utils.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/llm_utils.py)、[tools/__init__.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/tools/__init__.py)。
 
 产出：能独立写一个"读 JSON → 处理 → 写回 JSON"的小脚本；能讲出列表推导、装饰器、深浅拷贝（面试高频）。
 
-### 阶段 2：Web 后端 FastAPI + 数据库（1-2 周）
+### 阶段 2：FastAPI + 数据库（1.5-2 周）
 
-**课程**：[2026 最新版 FastAPI 从入门到实战](https://www.bilibili.com/video/BV1ufgY6MEHJ)（搜索：FastAPI 2026 从入门到实战）；补充：[FastAPI 框架从 0 到 1（路由/依赖注入/Pydantic/ORM/部署）](https://www.bilibili.com/video/BV1cGM96VEUg)
+**课程**：[2026 最新版 FastAPI 从入门到实战](https://www.bilibili.com/video/BV1ufgY6MEHJ)（搜索：FastAPI 2026 从入门到实战）；补充：[FastAPI 框架从 0 到 1（路由/依赖注入/Pydantic/ORM/部署）](https://www.bilibili.com/video/BV1cGM96VEUg)；数据库入门：[黑马 MySQL 入门到精通](https://www.bilibili.com/video/BV1Kr4y1i7ru)、[黑马 Redis 入门到精通](https://www.bilibili.com/video/BV1CJ411m7Gc)（进阶部分放到阶段 10）
 
 重点看：
 
 1. 路由：GET/POST/PUT/DELETE 与路径参数
 2. Pydantic 请求体校验（本项目所有接口都走它）
-3. 文件上传（`UploadFile`）
-4. SQLAlchemy ORM：建表、增删改查、外键
-5. 静态文件托管 + SPA 回退（本项目前端就由后端托管）
+3. 文件上传（`UploadFile`，简历 PDF 解析的入口）
+4. SQLAlchemy ORM：建表、增删改查、外键（本项目五张表）
+5. 数据库设计：主键/外键/唯一约束、一对多关系
+6. MySQL 基础：建库建表、为什么索引快（B+ 树入门）
+7. Redis 基础：五种数据类型、TTL 过期
+8. 静态文件托管 + SPA 回退（本项目前端就由后端托管）
 
-对照本项目：[server/main.py](/Users/huang/Desktop/个人项目/ai-interview-agent/server/main.py)（所有 API）、[db.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/db.py)、[interview_store.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/interview_store.py)。
+对照本项目：[server/main.py](/Users/huang/Desktop/个人项目/ai-interview-agent/server/main.py)（所有 API）、[backend/app/db.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/db.py)、[backend/app/interview_store.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/interview_store.py)。
 
-产出：能用 FastAPI 写一个带 SQLite 存储的增删改查接口，并在浏览器里调通。
+产出：能用 FastAPI 写一个带 SQLite 存储的增删改查接口；能说清"为什么拆成多张表、为什么建索引"。
 
 ### 阶段 3：前端 React + TypeScript（2 周）
 
-**课程**：[尚硅谷 React 教程（B 站最火）](https://www.bilibili.com/video/BV1wy4y1D7JT)（搜索：尚硅谷 React 教程）
+**课程**：[尚硅谷 React 教程（B 站最火）](https://www.bilibili.com/video/BV1wy4y1D7JT)（搜索：尚硅谷 React 教程）；补充：[尚硅谷 TypeScript](https://www.bilibili.com/video/BV1Xy4y1v7S2)、[Vite.js 快速入门到精通](https://www.bilibili.com/video/BV13arYYxEGF)
 
 重点看（旧 class 组件部分可快进）：
 
@@ -231,81 +236,134 @@ flowchart LR
 2. **Hooks**：useState / useEffect / useRef / useCallback——本项目前端几乎全是 Hooks
 3. 状态提升与组件通信
 4. fetch 调用后端 API
-5. 简单了解 TypeScript 类型标注（本项目 `lib/types.ts` 全是类型定义）
+5. TypeScript：接口类型、泛型（本项目 `lib/types.ts` 是前后端契约）
+6. Vite：`dev` 与 `build` 的区别、开发代理
 
-对照本项目：[web/src/pages/ChatPage.tsx](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/pages/ChatPage.tsx)（SSE 流式）、[web/src/lib/api.ts](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/lib/api.ts)、[web/src/App.tsx](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/App.tsx)。
+对照本项目：[web/src/pages/ChatPage.tsx](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/pages/ChatPage.tsx)（SSE 流式）、[web/src/lib/api.ts](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/lib/api.ts)、[web/src/lib/types.ts](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/lib/types.ts)、[web/src/App.tsx](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/App.tsx)。
 
-产出：能自己写一个"列表页 + 表单页 + 调后端接口"的小页面；理解 Vite 的 `dev` 与 `build`。
+产出：能自己写一个"列表页 + 表单页 + 调后端接口"的小页面；知道 tsc 类型检查为什么能提前拦错。
 
-### 阶段 4：大模型原理与提示词（1 周）
+### 阶段 4：大模型原理（1 周）
 
-**课程**：[李宏毅《生成式人工智能导论》](https://www.bilibili.com/video/BV1kUoKBAESK)（搜索：李宏毅 生成式人工智能导论）
+**课程**：[李宏毅《生成式人工智能导论》](https://www.bilibili.com/video/BV1kUoKBAESK)（搜索：李宏毅 生成式人工智能导论）；补充：[3Blue1Brown 深度学习之神经网络](https://www.bilibili.com/video/BV1bx411M7Zx)、[李宏毅 一次性搞定 Transformer](https://www.bilibili.com/video/BV1i85M6REL9)
 
 重点看：
 
 1. 生成式 AI 是怎么工作的（下一 token 预测）
-2. **上下文工程（Context Engineering）**：把档案/JD/知识塞进提示词的原理——本项目核心
-3. 提示工程：system prompt 怎么写、few-shot
-4. 评测生成式 AI：为什么需要结构化输出和 rubric
+2. 神经网络结构、梯度下降、反向传播（3Blue1Brown，理解"模型在学什么"）
+3. **上下文工程（Context Engineering）**：把档案/JD/知识塞进提示词的原理——本项目核心
+4. Transformer 与自注意力机制（为什么模型能"记住"长上下文）
+5. Embedding 是什么（向量检索的地基，阶段 8 会用到）
 
-对照本项目：[roles.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/roles.py)（系统提示词设计）、[profile.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/profile.py)（档案注入提示词）、[interview.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/interview.py)（rubric 评分）。
+对照本项目：[backend/app/agent/roles.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/roles.py)（系统提示词设计）、[backend/app/profile.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/profile.py)（档案注入提示词）、[backend/app/interview.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/interview.py)（rubric 评分）。
 
-产出：能解释"为什么面试官记得你的项目"（因为档案被拼进了 system prompt）；能解释上下文窗口、temperature 是什么。
+产出：能解释"为什么面试官记得你的项目"（档案被拼进 system prompt）；能解释上下文窗口、temperature、embedding 是什么。
 
-### 阶段 5：AI Agent 与 Function Calling（1 周）
+### 阶段 5：Prompt 工程（3-5 天）
 
-**课程**：[李宏毅 AI Agent 系列课程](https://www.bilibili.com/video/BV1MJLF6sEQF)（搜索：李宏毅 AI Agent）
+**课程**：[吴恩达《ChatGPT Prompt Engineering for Developers》中文精讲](https://www.bilibili.com/video/BV1Bo4y1A7FU)（搜索：吴恩达 Prompt Engineering）
+
+重点看：
+
+1. 写清晰指令：分隔符、结构化输出、条件
+2. Few-shot：给模型示例再让它干活
+3. 让模型先思考再回答（Chain of Thought）
+4. 迭代优化：好 prompt 是改出来的，不是一次写出来的
+5. 防幻觉：明确"不知道就说不知道"（本项目知识库兜底就是这个思路）
+
+对照本项目：逐行读 [roles.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/roles.py) 里的面试官 / 八股讲师 / 求职顾问三套 system prompt，试着改写其中一套。
+
+产出：能把一个模糊需求写成带格式约束、few-shot 示例的系统提示词；能说清 system / user / assistant 三段式分工。
+
+### 阶段 6：SSE 流式 + Web 工程（3-5 天）
+
+**课程**：[SSE（Server-Sent Events）原理与应用场景 + 打字机流式输出 Demo](https://www.bilibili.com/video/BV1La6uB9EoL)（搜索：SSE 打字机 流式输出）
+
+重点看：
+
+1. SSE 是什么、和 WebSocket 的区别
+2. 后端怎么往一条连接里不断推数据
+3. 前端 `EventSource` / fetch 流式读取
+4. 打字机效果怎么实现、中断怎么处理
+
+对照本项目：后端 [server/main.py](/Users/huang/Desktop/个人项目/ai-interview-agent/server/main.py) 的 `/api/chat` 流式接口 + 前端 [ChatPage.tsx](/Users/huang/Desktop/个人项目/ai-interview-agent/web/src/pages/ChatPage.tsx) 的流式消费。
+
+产出：能讲清"为什么 AI 回复要流式输出"；能自己写一个 SSE 小 Demo。
+
+### 阶段 7：AI Agent 与 Function Calling（1-1.5 周）
+
+**课程**：[李宏毅 AI Agent 系列课程](https://www.bilibili.com/video/BV1MJLF6sEQF)（搜索：李宏毅 AI Agent）；进阶：[黑马程序员 LangChain + LangGraph 开发实战](https://www.bilibili.com/video/BV178w1z7EHQ)（Agent 部分）
 
 重点看：
 
 1. Agent 的原理：LLM 决定调用什么工具
 2. **Function Calling / Tool Use**：模型输出结构化调用、系统执行、结果回填
-3. Agent 之间的协作（多 Agent 路由）
-4. 评测 Agent：不是看单次回复，而是看任务完成率
+3. 工具调用失败怎么处理（错误回填 → 重新规划——本项目就是这么做的）
+4. Agent 之间的协作（多 Agent 路由：主管 + 专员）
+5. 评测 Agent：不是看单次回复，而是看任务完成率
 
-对照本项目：[harness.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/harness.py)（主管路由）、[loop.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/loop.py)（Function Calling 循环）、[tools/__init__.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/tools/__init__.py)、[scripts/eval_agent.py](/Users/huang/Desktop/个人项目/ai-interview-agent/scripts/eval_agent.py)。
+对照本项目：[backend/app/agent/harness.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/harness.py)（主管路由）、[backend/app/agent/loop.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/loop.py)（Function Calling 循环）、[backend/app/tools/__init__.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/tools/__init__.py)、[scripts/eval_agent.py](/Users/huang/Desktop/个人项目/ai-interview-agent/scripts/eval_agent.py)。
 
 产出：能讲清"一次工具调用从模型出参到回填结果的完整链路"；能说出本项目为什么手写 loop 而不是套 LangGraph。
 
-### 阶段 6：RAG 检索增强生成（1-2 周）
+### 阶段 8：RAG + 向量检索（1-2 周）
 
-**课程**：[黑马程序员 2026 LangChain + LangGraph 开发实战](https://www.bilibili.com/video/BV178w1z7EHQ)（搜索：黑马 LangChain LangGraph）；或搜索"LangChain 全套教程"
+**课程**：[《Faiss》基础到进阶（索引加速/内存压缩）](https://www.bilibili.com/video/BV1nx421m7kJ)（搜索：Faiss 向量检索）；RAG 全流程：[黑马程序员 2026 LangChain + LangGraph 开发实战](https://www.bilibili.com/video/BV178w1z7EHQ)（RAG 部分）
 
 重点看：
 
 1. RAG 全流程：切块 → 向量化 → 检索 → 生成
-2. 切块策略：按标题/固定长度/重叠
-3. 向量检索 vs 关键词检索，**混合检索（RRF 融合）**
-4. 评估：Recall@K / MRR（本项目实测指标就是这么来的）
-5. LangChain 讲完概念后，**回来看本项目手写版**，理解框架背后的原理
+2. 切块策略：按标题 / 固定长度 / 重叠
+3. Embedding 与向量检索；FAISS 索引（IVF、HNSW 知道概念即可）
+4. 向量检索 vs 关键词检索，**混合检索（RRF 融合）**
+5. 评估：Recall@K / MRR（本项目实测指标就是这么来的）
+6. LangChain 讲完概念后，**回来看本项目手写版**，理解框架背后的原理
 
-对照本项目：[rag.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/rag.py)（手写 RAG）、[data/knowledge/](/Users/huang/Desktop/个人项目/ai-interview-agent/data/knowledge)（知识库）、[scripts/eval_rag.py](/Users/huang/Desktop/个人项目/ai-interview-agent/scripts/eval_rag.py)。
+对照本项目：[backend/app/agent/rag.py](/Users/huang/Desktop/个人项目/ai-interview-agent/backend/app/agent/rag.py)（手写 RAG）、[data/knowledge/](/Users/huang/Desktop/个人项目/ai-interview-agent/data/knowledge)（知识库）、[scripts/eval_rag.py](/Users/huang/Desktop/个人项目/ai-interview-agent/scripts/eval_rag.py)。
 
 产出：能讲清"为什么用 RAG 而不是把全部知识塞进提示词"（成本/幻觉/更新）；能解释 RRF 怎么融合两个检索结果。
 
-### 阶段 7：工程化 + 面试表达（1 周）
+### 阶段 9：工程化 + CI（1 周）
 
-**不用看长课，看这几个点即可**：
+**不用看长课，按下面顺序看对应章节即可**：
 
-- pytest 基础：搜"pytest 入门"（B 站 1-2 小时教程即可），看懂 [tests/](/Users/huang/Desktop/个人项目/ai-interview-agent/tests) 里 5 个测试文件
-- Git 基础：搜"Git 教程 廖雪峰"（网页即可），会 add/commit/push/分支
-- GitHub Actions 基础：搜"GitHub Actions 入门"，看懂 [ci.yml](/Users/huang/Desktop/个人项目/ai-interview-agent/.github/workflows/ci.yml)
+- pytest：[pytest 测试框架入门](https://www.bilibili.com/video/BV18K411m7FH)，重点看 fixture、断言、参数化，然后读懂 [tests/](/Users/huang/Desktop/个人项目/ai-interview-agent/tests) 里 5 个测试文件
+- Git：[尚硅谷 Git 入门到精通](https://www.bilibili.com/video/BV1vy4y1s7k6)，会 add/commit/push/分支/冲突解决
+- GitHub Actions：[GitHub Actions 从入门到专业人士](https://www.bilibili.com/video/BV1dMCsBKEyk)，看懂 [ci.yml](/Users/huang/Desktop/个人项目/ai-interview-agent/.github/workflows/ci.yml) 的双 Job 在跑什么
+- 可选：[黑马 Linux 快速入门](https://www.bilibili.com/video/BV1n84y1i7td)（命令、权限、进程——部署和面试都会用到）
 - 把 [docs/interview_script.md](/Users/huang/Desktop/个人项目/ai-interview-agent/docs/interview_script.md) 背熟，它就是你的"面试押题本"
 
 产出：能跑 `pytest -q` 看 23 项全绿；能说出 CI 在跑什么；能按 STAR 把项目讲 3 分钟。
 
-### 路线总览
+### 阶段 10：面试理论补强（长期，投简历前 2 周集中）
+
+> 这一阶段不是看一门课，而是按"高频八股"补齐短板。时间紧就只刷标 ★ 的。
+
+- 计算机网络：[王道考研 计算机网络](https://www.bilibili.com/video/BV19E411D78Q) ★ —— 三次握手/四次挥手、HTTP/HTTPS、状态码、TCP vs UDP
+- 操作系统：[王道考研 操作系统](https://www.bilibili.com/video/BV1YE411D7nH) ★ —— 进程与线程、死锁、内存分页、虚拟内存
+- 数据结构：[王道考研 数据结构](https://www.bilibili.com/video/BV1b7411N798) ★ —— 链表/栈/队列/哈希/树/排序/二分（算法题基础）
+- MySQL 进阶：[黑马 MySQL](https://www.bilibili.com/video/BV1Kr4y1i7ru) 进阶篇 —— 索引 B+ 树、执行计划、事务隔离级别
+- Redis 原理：[黑马 Redis](https://www.bilibili.com/video/BV1CJ411m7Gc) —— 缓存穿透/击穿/雪崩、过期策略（本项目缓存降级就是实际应用）
+- JavaScript 进阶：[尚硅谷 JS 高级](https://www.bilibili.com/video/BV14s411E7qf) —— 事件循环、闭包、原型链（前端岗常问）
+- 大模型面试八股：回看阶段 4/5/7/8 的课程目录，把"上下文窗口、温度、Function Calling、RAG、幻觉"各写一段自己的话
+
+产出：能对着 [docs/interview_script.md](/Users/huang/Desktop/个人项目/ai-interview-agent/docs/interview_script.md) 的每一问口述 1 分钟；面经里出现的技术名词没有一个是陌生的。
+
+### 路线总览（10-12 周）
 
 | 阶段 | 时长 | 课程 | 对照本项目 |
 | --- | --- | --- | --- |
 | 0 学前准备 | 1-2 天 | 跑通项目 | 整个项目 |
-| 1 Python 基础 | 2-3 周 | 黑马 Python+AI（BV1sHU9BmEne） | config / llm_utils / tools |
-| 2 FastAPI + 数据库 | 1-2 周 | FastAPI 2026（BV1ufgY6MEHJ） | server/main.py / db.py |
-| 3 React + TS | 2 周 | 尚硅谷 React（BV1wy4y1D7JT） | web/src 全部 |
-| 4 大模型原理 | 1 周 | 李宏毅生成式 AI 导论（BV1kUoKBAESK） | roles / profile / interview |
-| 5 Agent | 1 周 | 李宏毅 AI Agent（BV1MJLF6sEQF） | harness / loop / tools |
-| 6 RAG | 1-2 周 | 黑马 LangChain+LangGraph（BV178w1z7EHQ） | rag.py / knowledge / eval_rag |
-| 7 工程化 + 表达 | 1 周 | pytest / Git / CI 入门 | tests / ci.yml / interview_script |
+| 1 Python 基础 | 2-3 周 | 黑马 Python 600 集（BV1ex411x7Em） | config / llm_utils / tools |
+| 2 FastAPI + 数据库 | 1.5-2 周 | FastAPI 2026（BV1ufgY6MEHJ）+ MySQL/Redis 入门 | server/main.py / db.py / interview_store.py |
+| 3 React + TS | 2 周 | 尚硅谷 React（BV1wy4y1D7JT）+ TS（BV1Xy4y1v7S2） | web/src 全部 |
+| 4 大模型原理 | 1 周 | 李宏毅生成式 AI（BV1kUoKBAESK）+ 3Blue1Brown + Transformer | roles / profile / interview |
+| 5 Prompt 工程 | 3-5 天 | 吴恩达 Prompt Engineering（BV1Bo4y1A7FU） | roles.py 三套 system prompt |
+| 6 SSE 流式 | 3-5 天 | SSE 原理与应用（BV1La6uB9EoL） | chat 接口 + ChatPage |
+| 7 Agent | 1-1.5 周 | 李宏毅 AI Agent（BV1MJLF6sEQF）+ LangChain Agent 部分 | harness / loop / tools |
+| 8 RAG | 1-2 周 | Faiss（BV1nx421m7kJ）+ LangChain RAG 部分 | rag.py / knowledge / eval_rag |
+| 9 工程化 + CI | 1 周 | pytest（BV18K411m7FH）/ Git / Actions | tests / ci.yml / interview_script |
+| 10 八股补强 | 长期 | 王道计网（BV19E411D78Q）/ 王道 OS（BV1YE411D7nH）/ 数据结构（BV1b7411N798） | 面试前两周集中刷 |
 
 ---
 

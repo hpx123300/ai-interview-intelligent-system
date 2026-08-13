@@ -6,17 +6,24 @@
 
 ## 📺 B 站推荐（按技术栈 · 必看章节）
 
-完整 8-10 周学习路线（每阶段对照项目文件）见 [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)。下面直接按本技术栈挑好的课 + 必看章节：
+完整 10-12 周学习路线（每阶段对照项目文件）见 [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)。下面直接按本技术栈挑好的课 + 必看章节：
 
 | 技术栈 | B 站课程（点击直达） | 必看章节 |
 | --- | --- | --- |
 | Python | [黑马程序员 Python 600 集（BV1ex411x7Em）](https://www.bilibili.com/video/BV1ex411x7Em) | 基础语法 → 函数 → 面向对象 → 文件/JSON → 异常处理 |
 | FastAPI | [2026 最新版 FastAPI 从入门到实战（BV1ufgY6MEHJ）](https://www.bilibili.com/video/BV1ufgY6MEHJ) | 路由与参数 → Pydantic 校验 → 文件上传 → ORM 增删改查 |
 | React | [尚硅谷 React 教程（BV1wy4y1D7JT）](https://www.bilibili.com/video/BV1wy4y1D7JT) | JSX/组件 → Hooks（useState/useEffect/useRef）→ fetch 调后端（class 组件可快进） |
+| TypeScript | [尚硅谷 TypeScript（BV1Xy4y1v7S2）](https://www.bilibili.com/video/BV1Xy4y1v7S2) | 基础类型 → 接口/泛型 → 类型守卫（本项目的 `lib/types.ts` 前后端契约） |
 | 大模型原理 | [李宏毅《生成式人工智能导论》（BV1kUoKBAESK）](https://www.bilibili.com/video/BV1kUoKBAESK) | 第 1 讲 生成式 AI 原理 → 第 2 讲 上下文工程 → 第 4 讲 评测生成式 AI |
+| 神经网络基础 | [3Blue1Brown 深度学习之神经网络（BV1bx411M7Zx）](https://www.bilibili.com/video/BV1bx411M7Zx) | 网络结构 → 梯度下降 → 反向传播（理解"模型在学什么"） |
+| Transformer/注意力 | [李宏毅 一次性搞定 Transformer（BV1i85M6REL9）](https://www.bilibili.com/video/BV1i85M6REL9) | 自注意力 → 多头注意力 → 编码器/解码器 → GPT/BERT |
+| Prompt 工程 | [吴恩达 ChatGPT Prompt Engineering 中文精讲（BV1Bo4y1A7FU）](https://www.bilibili.com/video/BV1Bo4y1A7FU) | 清晰指令/分隔符 → Few-shot → CoT 先思考再答 → 迭代优化 |
 | AI Agent | [李宏毅 AI Agent 系列（BV1MJLF6sEQF）](https://www.bilibili.com/video/BV1MJLF6sEQF) | Agent 原理 → Function Calling/工具调用 → 多 Agent 协作 → Agent 评测 |
 | RAG | [黑马 LangChain + LangGraph 实战（BV178w1z7EHQ）](https://www.bilibili.com/video/BV178w1z7EHQ) | RAG 全流程（切块→向量化→检索→生成）→ 混合检索/RRF → Recall@K、MRR 评估 |
-| 工程化 | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6) + 搜「pytest 入门」「GitHub Actions 教程」 | Git 常用命令/分支/远程仓库；pytest fixture/断言；看懂 ci.yml |
+| 向量检索 | [《Faiss》基础到进阶（BV1nx421m7kJ）](https://www.bilibili.com/video/BV1nx421m7kJ) | FAISS 基本使用 → 索引加速（IVF/HNSW 概念）→ 内存压缩 |
+| SSE 流式 | [SSE 原理与应用 + 打字机 Demo（BV1La6uB9EoL）](https://www.bilibili.com/video/BV1La6uB9EoL) | SSE vs WebSocket → 后端推送 → 前端 EventSource → 打字机效果 |
+| 工程化 | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6) + [pytest 入门（BV18K411m7FH）](https://www.bilibili.com/video/BV18K411m7FH) + [GitHub Actions 从入门到专业（BV1dMCsBKEyk）](https://www.bilibili.com/video/BV1dMCsBKEyk) | Git 常用命令/分支/远程仓库；pytest fixture/断言；看懂 ci.yml 双 Job |
+| 八股补强 | [王道计网（BV19E411D78Q）](https://www.bilibili.com/video/BV19E411D78Q) + [王道操作系统（BV1YE411D7nH）](https://www.bilibili.com/video/BV1YE411D7nH) + [王道数据结构（BV1b7411N798）](https://www.bilibili.com/video/BV1b7411N798) | 计网：三次握手/HTTP/状态码；OS：进程线程/死锁；数据结构：链表/树/排序（投递前 2 周集中刷） |
 
 ## 它解决了什么
 
@@ -25,7 +32,7 @@
 | 痛点 | 项目的解法 |
 | --- | --- |
 | 没人陪练、练习没反馈 | 主管 Agent 路由，模拟面试官 / 八股讲师 / 求职顾问三个专员协作，Function Calling 驱动真实工具调用 |
-| 复习没重点、八股全靠背 | RAG 知识库（8 份文档 / 90 道题库）提供有依据的讲解；关键词 + 向量 RRF 混合检索，Recall@K / MRR 可量化 |
+| 复习没重点、八股全靠背 | RAG 知识库（8 份文档 / 98 道题库）提供有依据的讲解；关键词 + 向量 RRF 混合检索，Recall@K / MRR 可量化 |
 | 面试必问项目，但不会讲 | 「我的档案」绑定你的真实项目，面试自动插入约 30% 项目深挖题（技术选型 / 难点 / 量化 / 失败与改进） |
 | 练了没进步、复盘靠感觉 | 评分标准驱动的整场评分（能力分 0-5 + 5 维度 + 表达报告）+ 学习教练生成补强计划 + 历史对比 + 求职作战室 |
 
@@ -92,7 +99,7 @@ cd web && npm install && npm run build && cd ..
 ```
 
 打开 http://localhost:8000，建议使用顺序：
-1. **我的档案**：填目标岗位 + 技能栈 + 三个真实项目（投满分 BERT / 本地知识库问答 / 本 Agent）
+1. **我的档案**：默认已内置「大学生花钱助手 / 本 Agent」两个真实项目，也可按需修改或上传简历自动解析
 2. **我的档案**：粘贴目标 JD → 保存后自动解析岗位画像与差距分析
 3. **模拟面试**：选方向开始（或「自定义面试设计」一句话生成），会看到「含 N 道项目深挖题」+ 每题的评分标准与追问方向
 4. **自由对话**：试试「讲讲 RAG 的原理」「广州有哪些大模型实习」
@@ -127,7 +134,7 @@ data/packs/              # 岗位问题包（大模型应用开发实习 / Pytho
 data/questions.json      # 98 道题库（python/database/network/os/ai/algorithm/project/behavior）
 data/jobs.json           # 16 条实习岗位库
 scripts/                 # eval_agent / eval_rag / eval_interview 离线评估
-tests/                   # 18 项 pytest
+tests/                   # 23 项 pytest
 ```
 
 ## 架构
