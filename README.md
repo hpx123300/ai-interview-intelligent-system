@@ -8,13 +8,11 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) | **项目全解**：每个文件的用途 + 技术栈全景 + 核心设计深挖（面试问答素材）+ 0-10 阶段 B 站学习路线（10-12 周，BV 直达）+ 整体时间规划 + 面试要点速查 + 学完自测 10 问 |
-| [docs/interview_script.md](docs/interview_script.md) | **面试讲稿**：STAR 话术、技术决策、踩坑与追问应对，背熟它就能把项目讲明白 |
-| [docs/superpowers/specs/](docs/superpowers/specs/) | **架构设计文档**：多 Agent 引擎与 prep/live/post 闭环的设计依据（面试讲"为什么这么设计"） |
+| [说明文档.md](说明文档.md) | **全部技术说明三合一**：第一部分 项目全解（逐文件用途 + 技术栈 + 核心设计深挖 + B 站学习路线 + 时间规划 + 面试速查 + 自测）；第二部分 面试讲稿（STAR 话术 + 追问应对）；第三部分 架构设计文档（设计依据） |
 
 ## 📺 B 站推荐（按技术栈 · 必看章节）
 
-完整 10-12 周学习路线（每阶段对照项目文件）见 [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)。下面直接按本技术栈挑好的课 + 必看章节：
+完整 10-12 周学习路线（每阶段对照项目文件）见 [说明文档.md](说明文档.md) 第一部分。下面直接按本技术栈挑好的课 + 必看章节：
 
 | 技术栈 | B 站课程（点击直达） | 必看章节 |
 | --- | --- | --- |
@@ -239,14 +237,6 @@ tests/                   # 23 项 pytest
 | `tests/test_profile.py` | 档案读写 / 简历解析测试 |
 | `tests/test_rag.py` | RAG 分块 / 检索 / 降级测试 |
 | `tests/test_review_store.py` | 复盘存储测试 |
-
-### `docs/` — 文档
-
-| 文件 | 作用 |
-| --- | --- |
-| `docs/PROJECT_GUIDE.md` | 项目全解：逐文件说明、技术栈全景、0-10 阶段 B 站学习路线、学完自测 10 问、一句话简历 |
-| `docs/interview_script.md` | 面试讲解脚本：项目怎么讲、会被问什么、怎么答（"考前押题本"） |
-| `docs/superpowers/specs/*.md` | 架构设计文档：多 Agent 引擎与 prep/live/post 闭环的设计依据 |
 
 ## 架构
 
