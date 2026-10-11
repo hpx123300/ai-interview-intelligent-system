@@ -7,11 +7,11 @@ from typing import Callable
 
 from openai import OpenAI
 
-from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from ..config import AGENT_MAX_ITERATIONS, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from ..llm_utils import with_retry
 from .memory import Memory
 
-MAX_ITERATIONS = 6
+MAX_ITERATIONS = AGENT_MAX_ITERATIONS
 
 
 def strip_thought(text: str) -> str:
@@ -51,6 +51,18 @@ class AgentLoop:
 
     def _record(self, step: str, content: str) -> None:
         self.trace.append({"step": step, "content": content})
+
+    def _build_messages(self) -> list[dict]:
+        """拼装本轮请求的消息序列（系统提示 + 经过安全修剪的记忆）。"""
+        return [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
+
+    def _fallback_reply(self) -> str:
+        """达到步数上限时的兜底：用已拿到的工具结果作答，不让整轮白跑。"""
+        notes = [t["content"] for t in self.trace if t["step"] == "tool" and t["content"]]
+        if not notes:
+            return "抱歉，这个问题比较复杂，我没能在有限步骤内完成，请换个问法试试。"
+        joined = "\n".join(f"- {n}" for n in notes[:5])
+        return f"未能在限定步数内给出完整结论，但已检索到以下信息，供你参考：\n{joined}"
 
     @with_retry()
     def _call_llm(self, messages: list[dict]) -> dict:
@@ -93,7 +105,7 @@ class AgentLoop:
     def chat(self, user_message: str, on_tool: Callable[[str], None] | None = None) -> tuple[str, list[dict]]:
         self.trace = []
         self.memory.add({"role": "user", "content": user_message})
-        messages = [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
+        messages = self._build_messages()
         for _ in range(self.max_iterations):
             self._record("think", "正在分析问题并决定是否调用工具…")
             message = self._call_llm(messages)
@@ -103,14 +115,14 @@ class AgentLoop:
                 self._record("answer", reply)
                 return reply, self.trace
             self.memory.add({"role": "assistant", "content": message.content or "", "tool_calls": message.tool_calls})
-            messages = [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
             for tool_call in message.tool_calls:
                 if on_tool:
                     on_tool(tool_call.function.name)
                 result = self._execute_tool(tool_call)
                 self.memory.add({"role": "tool", "tool_call_id": tool_call.id, "content": result})
-            messages = [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
-        reply = "抱歉，这个问题比较复杂，我没能在有限步骤内完成，请换个问法试试。"
+            messages = self._build_messages()
+        reply = self._fallback_reply()
+        self.memory.add({"role": "assistant", "content": reply})
         self._record("answer", reply)
         return reply, self.trace
 
@@ -118,7 +130,7 @@ class AgentLoop:
         """流式版：工具调用轮不产出文本，最终回答逐块 yield。"""
         self.trace = []
         self.memory.add({"role": "user", "content": user_message})
-        messages = [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
+        messages = self._build_messages()
         for _ in range(self.max_iterations):
             self._record("think", "正在分析问题并决定是否调用工具…")
             content = ""
@@ -152,7 +164,6 @@ class AgentLoop:
                 for tc in tool_calls
             ]
             self.memory.add({"role": "assistant", "content": content, "tool_calls": tool_call_dicts})
-            messages = [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
             call_objects = [
                 SimpleNamespace(
                     id=tc["id"],
@@ -165,5 +176,8 @@ class AgentLoop:
                     on_tool(tc.function.name)
                 result = self._execute_tool(tc)
                 self.memory.add({"role": "tool", "tool_call_id": tc.id, "content": result})
-            messages = [{"role": "system", "content": self.system_prompt}] + self.memory.get_messages()
-        yield "抱歉，这个问题比较复杂，我没能在有限步骤内完成，请换个问法试试。"
+            messages = self._build_messages()
+        reply = self._fallback_reply()
+        self.memory.add({"role": "assistant", "content": reply})
+        self._record("answer", reply)
+        yield reply
