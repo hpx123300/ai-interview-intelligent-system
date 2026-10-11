@@ -1,285 +1,148 @@
-# 🎓 AI 面试智能系统
+# AI 面试智能系统
 
-面向「大模型 / AI 应用开发」第一次实习的多 Agent + RAG 面试陪练应用。它不是一个通用聊天玩具，而是**绑定你个人档案 + 目标 JD** 的陪练：面试官会根据你的真实项目与岗位要求深挖追问，做完面试给出评分标准驱动的结构化报告与学习计划，面经复盘自动归档成行动清单。
+面向「大模型 / AI 应用开发」第一次实习的**多 Agent + RAG 面试陪练应用**。绑定个人档案与目标 JD，自动生成专属面试官，覆盖**面试前设计 → 面试中陪练 → 面试后评分**的完整闭环。
 
-> 架构借鉴：[DeepInterview](https://github.com/ngoanpv/DeepInterview)（Apache-2.0）的 prep/live/post 三段式与 rubric 评分；[聆悟 ai-interview-platform](https://github.com/yuanzhongqiao/ai-interview-platform)（MIT）的自然语言面试设计与统一评分标准。代码为本项目重写实现。
-
-## 📖 项目文档（先看这里）
-
-| 文档 | 内容 |
-| --- | --- |
-| [说明文档.md](说明文档.md) | **全部技术说明三合一**：第一部分 项目全解（逐文件用途 + 技术栈 + 核心设计深挖 + B 站学习路线 + 时间规划 + 面试速查 + 自测）；第二部分 面试讲稿（STAR 话术 + 追问应对）；第三部分 架构设计文档（设计依据） |
-
-## 📺 B 站推荐（按技术栈 · 必看章节）
-
-完整 10-12 周学习路线（每阶段对照项目文件）见 [说明文档.md](说明文档.md) 第一部分。下面直接按本技术栈挑好的课 + 必看章节：
-
-| 技术栈 | B 站课程（点击直达） | 必看章节 |
-| --- | --- | --- |
-| Python | [黑马程序员 Python 600 集（BV1ex411x7Em）](https://www.bilibili.com/video/BV1ex411x7Em) | 基础语法 → 函数 → 面向对象 → 文件/JSON → 异常处理 |
-| FastAPI | [2026 最新版 FastAPI 从入门到实战（BV1ufgY6MEHJ）](https://www.bilibili.com/video/BV1ufgY6MEHJ) | 路由与参数 → Pydantic 校验 → 文件上传 → ORM 增删改查 |
-| React | [尚硅谷 React 教程（BV1wy4y1D7JT）](https://www.bilibili.com/video/BV1wy4y1D7JT) | JSX/组件 → Hooks（useState/useEffect/useRef）→ fetch 调后端（class 组件可快进） |
-| TypeScript | [尚硅谷 TypeScript（BV1Xy4y1v7S2）](https://www.bilibili.com/video/BV1Xy4y1v7S2) | 基础类型 → 接口/泛型 → 类型守卫（本项目的 `lib/types.ts` 前后端契约） |
-| 大模型原理 | [李宏毅《生成式人工智能导论》（BV1kUoKBAESK）](https://www.bilibili.com/video/BV1kUoKBAESK) | 第 1 讲 生成式 AI 原理 → 第 2 讲 上下文工程 → 第 4 讲 评测生成式 AI |
-| 神经网络基础 | [3Blue1Brown 深度学习之神经网络（BV1bx411M7Zx）](https://www.bilibili.com/video/BV1bx411M7Zx) | 网络结构 → 梯度下降 → 反向传播（理解"模型在学什么"） |
-| Transformer/注意力 | [李宏毅 一次性搞定 Transformer（BV1i85M6REL9）](https://www.bilibili.com/video/BV1i85M6REL9) | 自注意力 → 多头注意力 → 编码器/解码器 → GPT/BERT |
-| Prompt 工程 | [吴恩达 ChatGPT Prompt Engineering 中文精讲（BV1Bo4y1A7FU）](https://www.bilibili.com/video/BV1Bo4y1A7FU) | 清晰指令/分隔符 → Few-shot → CoT 先思考再答 → 迭代优化 |
-| AI Agent | [李宏毅 AI Agent 系列（BV1MJLF6sEQF）](https://www.bilibili.com/video/BV1MJLF6sEQF) | Agent 原理 → Function Calling/工具调用 → 多 Agent 协作 → Agent 评测 |
-| RAG | [黑马 LangChain + LangGraph 实战（BV178w1z7EHQ）](https://www.bilibili.com/video/BV178w1z7EHQ) | RAG 全流程（切块→向量化→检索→生成）→ 混合检索/RRF → Recall@K、MRR 评估 |
-| 向量检索 | [《Faiss》基础到进阶（BV1nx421m7kJ）](https://www.bilibili.com/video/BV1nx421m7kJ) | FAISS 基本使用 → 索引加速（IVF/HNSW 概念）→ 内存压缩 |
-| SSE 流式 | [SSE 原理与应用 + 打字机 Demo（BV1La6uB9EoL）](https://www.bilibili.com/video/BV1La6uB9EoL) | SSE vs WebSocket → 后端推送 → 前端 EventSource → 打字机效果 |
-| 工程化 | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6) + [pytest 入门（BV18K411m7FH）](https://www.bilibili.com/video/BV18K411m7FH) + [GitHub Actions 从入门到专业（BV1dMCsBKEyk）](https://www.bilibili.com/video/BV1dMCsBKEyk) | Git 常用命令/分支/远程仓库；pytest fixture/断言；看懂 ci.yml 双 Job |
-| 八股补强 | [王道计网（BV19E411D78Q）](https://www.bilibili.com/video/BV19E411D78Q) + [王道操作系统（BV1YE411D7nH）](https://www.bilibili.com/video/BV1YE411D7nH) + [王道数据结构（BV1b7411N798）](https://www.bilibili.com/video/BV1b7411N798) | 计网：三次握手/HTTP/状态码；OS：进程线程/死锁；数据结构：链表/树/排序（投递前 2 周集中刷） |
+它不是通用聊天机器人：面试官会围绕你的真实项目与岗位要求深挖追问，结束后给出评分标准驱动的结构化报告与补强计划。
 
 ## 它解决了什么
 
-第一次找实习的人通常有四个痛点，这个项目逐一对应：
-
-| 痛点 | 项目的解法 |
+| 痛点 | 解法 |
 | --- | --- |
-| 没人陪练、练习没反馈 | 主管 Agent 路由，模拟面试官 / 八股讲师 / 求职顾问三个专员协作，Function Calling 驱动真实工具调用 |
-| 复习没重点、八股全靠背 | RAG 知识库（8 份文档 / 98 道题库）提供有依据的讲解；关键词 + 向量 RRF 混合检索，Recall@K / MRR 可量化 |
-| 面试必问项目，但不会讲 | 「我的档案」绑定你的真实项目，面试自动插入约 30% 项目深挖题（技术选型 / 难点 / 量化 / 失败与改进） |
-| 练了没进步、复盘靠感觉 | 评分标准驱动的整场评分（能力分 0-5 + 5 维度 + 表达报告）+ 学习教练生成补强计划 + 历史对比 + 求职作战室 |
+| 没人陪练、练习没反馈 | 主管 Agent 路由 + 模拟面试官 / 八股讲师 / 求职顾问三个专员协作，Function Calling 驱动真实工具调用 |
+| 复习没重点、八股全靠背 | RAG 知识库（8 份文档 / 98 道题库）提供有依据的讲解，检索质量可用 Recall@K / MRR 量化 |
+| 面试必问项目，但不会讲 | 「我的档案」绑定真实项目，面试自动插入约 30% 项目深挖题（技术选型 / 难点 / 量化 / 失败与改进） |
+| 练了没进步、复盘靠感觉 | rubric 驱动的整场评分（能力分 0–5）+ 学习教练生成补强计划 + 历史对比 |
 
-## 面试全流程（prep → live → post）
+## 面试闭环
 
-- **prep 面试前**：粘贴目标 JD → 自动解析岗位画像（必须项/加分项/职责/技术栈）→ 与你的档案做差距分析（优势/gaps/应深挖点）→ 生成完整问题计划：每道题带难度曲线（1-5）、考察能力、评分标准（rubric）、追问种子；也支持"一句话描述考察目标 → 自动生成完整面试设计"
-- **live 面试中**：面试官按评分标准点评并给出 0-5 分，追问方向提前可见
-- **post 面试后**：逐题 rubric 评分 → 能力分聚合（0-5 + 扎实/合格/待练/薄弱）→ 改进版参考答案（只挑最弱题）→ 学习教练按弱能力生成补强模块，并用知识库检索学习材料
+- **prep 面试前**：粘贴目标 JD → 解析岗位画像（必须项 / 加分项 / 职责 / 技术栈）→ 与个人档案做差距分析 → 生成完整问题计划（难度曲线 1–5、考察能力、评分标准 rubric、追问种子）
+- **live 面试中**：面试官按 rubric 逐题点评并给出 0–5 分，追问方向提前可见
+- **post 面试后**：逐题评分 → 能力分聚合 → 最弱题的改进参考答案 → 学习教练生成补强模块
 
-## 技术栈与亮点
+## 技术栈
 
-- **手写多 Agent Harness**：主管路由 + 三个专员，通用 Function Calling 循环（AgentLoop），统一轨迹追踪，不依赖 LangGraph——能讲清 tool_calls 解析、路由、记忆注入、容错与评估
-- **RAG 混合检索**：Markdown 标题感知分块；关键词（jieba）+ 向量（FAISS + m3e）RRF 融合，索引持久化 + 文档指纹重建；embedding 模型单例缓存，无网自动降级关键词
-- **面试闭环状态机（prep/live/post）**：JD 画像与差距分析 → 评分标准驱动的问题计划 → 逐题评分 → ScoreCard 报告 → 学习教练，每环节结构化 JSON，落库可回看
-- **个性化档案 + 目标 JD**：SQLite 持久化，档案与 JD 画像注入面试官 / 求职顾问提示词，出题结合真实项目与岗位要求
-- **JD 图片直通面试官**：上传岗位 JD 截图，macOS Vision 本机 OCR（中文/英文）→ 自动解析岗位画像 → 生成专属面试官（姓名 / 头衔 / 考察重点 / 风格 / 开场白）→ 直接开面
-- **简历 PDF 自动识别**：上传简历 PDF（pypdf 提取文本层 + LLM 结构化解析），自动填好目标岗位、技能栈、项目经历（含量化成果与深挖点），不用手动录入
-- **会话记忆**：自由对话按会话 ID 读写 SQLite，AI 跨轮记住上下文，刷新 / 重启不丢
-- **岗位问题包**：data/packs/ 下的岗位 playbook（round structure / question bank / signals / pitfalls）注入出题提示词
-- **工程健壮性**：LLM 调用指数退避重试、JSON 解析兜底、多级降级（题库兜底出题、关键词兜底向量检索）
-- **测试与评估**：23 项 pytest（路由 / 专员权限 / 记忆 / RAG / prep-post 面试闭环 / 档案 / 复盘 / 学习教练 / 简历解析 / 面试官生成）+ 3 个离线 eval 脚本
+- **后端**：FastAPI · SQLite（SQLAlchemy 2.x）· Pydantic
+- **前端**：React 18 · TypeScript · Vite
+- **大模型**：DeepSeek（OpenAI 兼容接口），支持流式输出
+- **检索**：jieba 分词 + **BM25** 关键词检索；可选 **FAISS + m3e 向量检索**，双路 **RRF** 融合
+- **工程化**：pytest（23 项）· GitHub Actions CI
 
-## 量化验证（真实跑出的指标）
+## 架构
 
-| 模块 | 指标 | 结果 | 评测集 |
-| --- | --- | --- | --- |
-| RAG 检索 | Recall@3 | **0.929** | 14 条 query→期望来源文档 |
-| RAG 检索 | MRR | **0.750** | 同上 |
-| 多 Agent 路由 | 路由准确率 | **100%** | 16 条意图（3 专员 + 寒暄） |
-| 多 Agent 工具 | 工具准确率 | **100%** | 期望工具是否被调用 |
-| 多 Agent 回答 | 回答完整率 | **100%** | 是否产出有效回答 |
-| 面试闭环 | 出题/点评追问/评分/复盘完整率 | **100%** | 4 个方向出题 + 2 组问答 + 整场评分 + 复盘 |
-| 自动化测试 | pytest | **23/23 通过** | 路由/权限/记忆/RAG/闭环/档案/复盘/教练/简历解析 |
-| 前端 | tsc 类型检查 + Vite 构建 | 0 错误 | 桌面 1280×860 / 移动 390×844 无溢出 |
+```mermaid
+flowchart TD
+    U[用户输入] --> R[主管 Agent / RouterAgent]
+    R -->|delegate| I[模拟面试官 / query_question]
+    R -->|delegate| T[八股讲师 / search_knowledge]
+    R -->|delegate| C[求职顾问 / query_job + search_knowledge]
+    R -->|直接回复| U
+    I --> KB[(知识库<br/>8 份文档 / 98 道题库)]
+    T --> KB
+    C --> KB
+    KB --> BM[BM25 关键词检索]
+    KB --> V[FAISS 向量检索]
+    BM --> RRF[RRF 融合]
+    V --> RRF
+```
 
-复现方式：`scripts/eval_rag.py`、`scripts/eval_agent.py`、`scripts/eval_interview.py`（后两者需要 API Key），CI 自动跑 pytest 与前端构建。
-
-## 能力边界与降级策略
-
-| 场景 | 行为 |
-| --- | --- |
-| LLM 返回非法 JSON | `_extract_json` 正则兜底提取；仍失败则回退题库 / 模板出题 |
-| 工具调用失败 / 参数非法 | 错误信息回填模型重新规划；未知工具返回明确提示 |
-| RAG 检索无结果 | 如实告知"知识库未收录"，不编造答案 |
-| 未安装向量检索依赖 | 自动降级 jieba 关键词检索（零额外依赖可跑） |
-| 未配置 API Key | 界面正常打开，AI 功能给出配置提示；测试 / CI 不依赖 Key |
-| Agent 迭代超限 | 返回友好提示，建议换问法 |
-| 端口被占用 | 启动脚本检测后直接打开已运行的服务，不重复启动 |
+**分层设计**：主管只负责意图路由（单次 LLM 调用，不生成业务答案）；三个专员各自持有独立的系统提示词与工具子集；所有步骤写入统一轨迹（trace）供前端展示。
 
 ## 快速开始
 
-新版为 **React + Vite + Tailwind** 前端 + **FastAPI** 后端（沿用全部 Python 业务逻辑）：
-
 ```bash
-# 1. 配置 API Key
-cp .env.example .env   # 填入 DEEPSEEK_API_KEY
+# 1. 依赖
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
-# 2. 双击 start.command（自动建虚拟环境 + 构建前端 + 启动服务 + 打开网页）
-# 或手动：
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-cd web && npm install && npm run build && cd ..
-.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8001
+# 2. 配置（复制后填入 DEEPSEEK_API_KEY）
+cp .env.example .env
+
+# 3. 启动（后端 8001 + 前端）
+./start.command
 ```
 
-打开 http://localhost:8001，建议使用顺序：
-1. **我的档案**：默认已内置「大学生花钱助手 / 本 Agent」两个真实项目，也可按需修改或上传简历自动解析
-2. **我的档案**：粘贴目标 JD → 保存后自动解析岗位画像与差距分析
-3. **模拟面试**：选方向开始（或「自定义面试设计」一句话生成），会看到「含 N 道项目深挖题」+ 每题的评分标准与追问方向
-4. **自由对话**：试试「讲讲 RAG 的原理」「广州有哪些大模型实习」
-5. **求职作战室**：几场之后看趋势、薄弱维度与学习教练待办
+可选：启用向量检索（体积较大，按需安装）
 
-可选开启向量检索 RAG（首次运行会下载 m3e-base，需要网络）：
 ```bash
-.venv/bin/pip install -r requirements-rag.txt
+pip install -r requirements-rag.txt   # faiss-cpu + sentence-transformers
+```
+
+未安装时自动降级为纯 BM25 关键词检索，功能不受影响。
+
+## 核心设计
+
+### 1. 手写 Function Calling 循环，不依赖 LangGraph
+
+`backend/app/agent/loop.py` 实现了完整的工具调用循环，包含**流式场景下的 tool_calls 分片拼装**：流式返回时工具参数分片到达，需按 `index` 聚合、按 `id` 归并后才能执行。同步与流式两条路径共用同一套工具执行与轨迹记录逻辑。
+
+选择手写而非直接用 LangGraph，是为了彻底搞清 FC 的底层机制（消息序列构造、tool_calls 解析、结果回填、循环终止条件）。
+
+### 2. 混合检索与 RRF
+
+`backend/app/agent/rag.py`：
+
+- **分块**：按 Markdown 标题感知切分；过长小节再切成带重叠的窗口，避免边界上下文丢失
+- **关键词召回**：BM25（含 IDF 与文档长度归一化），而非原始词频计数
+- **向量召回**：m3e-base 编码 + FAISS 内积索引；索引持久化，文档指纹变更后自动重建
+- **融合**：RRF（Reciprocal Rank Fusion，k=60）合并双路排名，无需归一化不同量纲的分数
+
+### 3. 消息序列安全截断
+
+`backend/app/agent/memory.py`：大模型 API 要求「tool 消息必须紧跟带 tool_calls 的 assistant 消息」「每个 tool_call_id 都要有响应」。按条数硬截断会破坏这两种配对并导致 400 错误，因此在出参前统一做一次安全修剪。
+
+## 评测
+
+所有指标可用脚本复现，**口径写在脚本头部**。
+
+### RAG 检索（`python scripts/eval_rag.py`）
+
+命中粒度为**文档级**（期望文档出现在 Top-3 即算命中）：
+
+| 评测组 | 题量 | Recall@3 | MRR |
+| --- | --- | --- | --- |
+| A 术语型（复用文档术语） | 71 | 1.000 | 0.951 |
+| B 改述型（不复用文档术语） | 10 | 0.900 | 0.667 |
+
+**怎么读这组数**：A 组接近满分说明知识库主题区分度好，但题目复用了文档术语，属于**偏容易的基线**；B 组刻意改述后指标明显下降，恰好说明**纯关键词检索无法处理语义改写**——这也是接入向量检索的动机。默认环境下未安装 FAISS，实际运行在纯 BM25 模式。
+
+### 多 Agent 路由（`python scripts/eval_agent.py`）
+
+50 道题覆盖 4 类意图（面试官 / 讲师 / 顾问 / 直接回复），输出路由准确率、工具准确率、回答完整率。该脚本会真实调用大模型 API。
+
+## 测试
+
+```bash
+pytest tests/ -q      # 23 项：路由与专员协作、记忆回填、RAG 分块与检索、档案与复盘存储
 ```
 
 ## 目录结构
 
 ```
 backend/app/
-├── agent/
-│   ├── loop.py          # 通用 Agent 循环（Function Calling 引擎，带重试）
-│   ├── roles.py         # 主管 + 3 专员提示词与工具子集
-│   ├── harness.py       # 多 Agent 编排（档案注入 + 路由 + 轨迹）
-│   ├── memory.py        # 会话记忆（SQLite 回填）
-│   └── rag.py           # RAG 检索（关键词/向量 RRF，模型单例缓存）
-├── interview.py         # 面试闭环：出题（含项目深挖）/点评/评分/对比/复盘
-├── interview_store.py   # 面试场次与问答持久化
-├── profile.py           # 个人档案（目标岗位/技能栈/项目经历）
-├── review_store.py      # 面经复盘持久化
-├── llm_utils.py         # LLM 指数退避重试
-├── tools/               # 工具注册中心（题库/岗位库/知识库检索）
-└── db.py                # SQLite 表结构（会话/面试/档案/复盘）
-web/                     # 新版前端：React + Vite + Tailwind（对话/模拟面试/复盘/作战室/历史/档案）
-server/main.py           # FastAPI：聊天 SSE + 面试闭环 + 档案 + 复盘 + 静态托管前端
-data/knowledge/          # 8 份面试知识库（约 340 行）
-data/packs/              # 岗位问题包（大模型应用开发实习 / Python 后端实习）
-data/questions.json      # 98 道题库（python/database/network/os/ai/algorithm/project/behavior）
-data/jobs.json           # 16 条实习岗位库
-scripts/                 # eval_agent / eval_rag / eval_interview 离线评估
-tests/                   # 23 项 pytest
+  agent/
+    loop.py         Function Calling 循环（同步 + 流式）
+    harness.py      多 Agent 编排：主管路由 + 专员
+    roles.py        各角色提示词与工具子集
+    rag.py          分块 + BM25 + 向量 + RRF
+    memory.py       会话记忆与安全截断
+  db.py             SQLAlchemy 模型
+  interview.py      面试闭环（prep / live / post）
+  profile.py        个人档案与 JD 解析
+server/
+  main.py           FastAPI 接口与 SSE 流式
+data/
+  knowledge/        8 份知识库文档
+  questions.json    98 道题库
+scripts/
+  eval_rag.py       RAG 检索评测
+  eval_agent.py     多 Agent 路由评测
+web/                React + TypeScript 前端
 ```
 
-## 📄 每个文件的作用
+## 设计参考
 
-> 运行后自动生成 `data/interview.db`（SQLite 数据库）与 `data/rag_index/`（向量索引缓存），不在 git 里，不用管。
-> 各目录下的 `__init__.py` 均为 Python 包标记（让目录可以被 import），下面不再重复。
+架构参考了 [DeepInterview](https://github.com/ngoanpv/DeepInterview)（Apache-2.0）的 prep/live/post 三段式与 rubric 评分、[聆悟 ai-interview-platform](https://github.com/yuanzhongqiao/ai-interview-platform)（MIT）的自然语言面试设计。代码为本项目重写实现。
 
-### 根目录
+## License
 
-| 文件 | 作用 |
-| --- | --- |
-| `README.md` | 项目门面：痛点、三段式流程、技术栈亮点、量化指标、快速开始。**面试官第一眼就看它** |
-| `start.command` | macOS 双击一键启动：自动建虚拟环境、装依赖、构建前端、启动服务、等就绪后开浏览器；检测到端口占用就直接打开已运行服务 |
-| `.env.example` | 配置模板。复制为 `.env` 后填入 `DEEPSEEK_API_KEY`（也支持 `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` 换其他兼容 OpenAI 协议的大模型） |
-| `.gitignore` | 忽略 `.venv`、`node_modules`、`.env`、`__pycache__`、`data/interview.db`、`data/rag_index` 等 |
-| `LICENSE` | MIT 协议 |
-| `requirements.txt` | 后端基础依赖：FastAPI、Uvicorn、SQLAlchemy、OpenAI SDK、pypdf、python-multipart、pytest、jieba、python-dotenv |
-| `requirements-rag.txt` | 可选 RAG 增强依赖：sentence-transformers + faiss（装了才启用向量检索；不装自动降级纯关键词） |
-| `.github/workflows/ci.yml` | GitHub Actions CI：后端跑 `pytest`，前端跑 `tsc --noEmit + vite build`，push/PR 自动触发 |
-
-### `backend/app/` — 业务逻辑核心（纯 Python，不依赖 Web 框架）
-
-| 文件 | 作用 |
-| --- | --- |
-| `config.py` | 全局配置唯一入口：从 `.env` 读 API Key / Base URL / 模型名，定义数据/知识库/题库/数据库路径；`ensure_dirs()` 自动建目录 |
-| `db.py` | SQLite 持久层：SQLAlchemy ORM 定义会话消息、面试场次、逐题问答、个人档案、面经复盘五张表 |
-| `llm_utils.py` | LLM 调用容错：`with_retry` 装饰器实现指数退避重试（3 次、翻倍等待、上限 8 秒），API 偶发失败不崩 |
-| `tools/__init__.py` | 工具注册中心：声明 Agent 可调用的工具（JSON Schema + 实现）——抽题 / 查岗位 / 检索知识库。新工具只要加一份声明 + 一个函数就能被 Agent 调用 |
-| `profile.py` | 候选人档案：默认档案（目标岗位、技能栈、弱项、2 个真实项目含指标/深挖点）、SQLite 读写、`profile_context_text()` 把档案拼成提示词上下文；简历 PDF 解析逻辑 |
-| `interview.py` | **面试闭环核心（prep/live/post 状态机）**：JD 画像解析、差距分析、面试设计、问题计划（难度/能力/rubric/追问种子）、live 点评评分、post ScoreCard 报告、学习教练；非法 JSON 有正则兜底 |
-| `interview_store.py` | 面试场次存储：创建/读取/更新/删除面试与问答记录，前端历史页和报告页的数据来源 |
-| `review_store.py` | 面经复盘存储：保存/列表/删除复盘结果（摘要、亮点、弱点、要点、行动清单） |
-| `chat_history.py` | 会话历史读写：SQLite 落盘，刷新/重启不丢——"AI 记得上下文"的实现 |
-| `cards.py` | 轨迹转卡片：把 Agent 工具调用轨迹解析成前端可渲染的卡片（知识 / 题目 / 岗位） |
-
-### `backend/app/agent/` — 手写多 Agent 引擎（项目最大亮点，面试重点讲）
-
-| 文件 | 作用 |
-| --- | --- |
-| `core.py` | 对外导出统一入口：`MultiAgentHarness`、`AgentLoop`、`AgentError`、`strip_thought` |
-| `harness.py` | **主管路由**：RouterAgent 判断直接回复还是调 `delegate` 指派专员；MultiAgentHarness 统一调度主管 + 3 专员，注入档案与记忆，记录全程轨迹 |
-| `loop.py` | **通用 Function Calling 循环引擎**（AgentLoop）：多 Agent 共用；解析 tool_calls → 执行 → 回填 → 再生成，最多 6 轮防死循环；非法工具/参数错误/超限都有降级提示。**不依赖 LangGraph，全手写** |
-| `roles.py` | 角色定义：主管路由提示词 + 3 专员提示词（面试官 / 八股讲师 / 求职顾问）+ 各自工具子集和 `delegate` 工具 Schema |
-| `memory.py` | 会话记忆：启动时从 SQLite 回填最近 24 条历史，跨轮不"失忆" |
-| `rag.py` | **RAG 检索**：Markdown 标题感知分块、关键词（jieba）+ 向量（FAISS/m3e）RRF 融合、索引持久化 + 文档指纹重建、embedding 模型单例缓存、无网自动降级关键词 |
-
-### `server/` — API 层
-
-| 文件 | 作用 |
-| --- | --- |
-| `main.py` | FastAPI 全部接口：`/api/chat`（SSE 流式）、`/api/profile`（读写档案）、`/api/profile/analyze-jd`（JD 解析）、`/api/resume/parse`（简历 PDF）、`/api/jd/ocr`（JD 截图 OCR）、`/api/interview/*`、`/api/review/*`、`/api/health`；静态托管前端（SPA 回退） |
-| `ocr_vision.swift` | macOS Vision 本机 OCR 脚本（中英文），读取 JD 截图输出识别文本；不联网、不传图给第三方 |
-
-### `web/` — React 前端
-
-| 文件 | 作用 |
-| --- | --- |
-| `index.html` / `package.json` / `tsconfig.json` / `vite.config.ts` | Vite 入口、前端依赖与脚本、TS 编译配置、Vite 配置（React + Tailwind + 开发代理） |
-| `src/main.tsx` | React 挂载入口 |
-| `src/App.tsx` | 页面路由中枢：按当前页 key 渲染 6 个页面之一 |
-| `src/index.css` | 全局样式（Tailwind v4 入口） |
-| `src/lib/api.ts` | 全部后端 API 封装：统一 fetch + 错误解析 + 类型化返回 |
-| `src/lib/types.ts` | 前后端共享类型：Profile、Question、JdAnalysis、Report、Review、ChatMessage 等 |
-| `src/components/AppShell.tsx` | 应用外壳：侧边导航 + 响应式布局 |
-| `src/components/ScoreCard.tsx` | 面试评分卡组件：能力维度分数展示 |
-| `src/components/ui.tsx` | 通用 UI 组件（按钮、卡片、输入等） |
-| `src/pages/ChatPage.tsx` | 自由对话页：SSE 流式输出 + 工具调用卡片 |
-| `src/pages/InterviewPage.tsx` | 模拟面试页：面试官生成 → 逐题作答 → 评分反馈 → 整场报告 |
-| `src/pages/ReviewPage.tsx` | 复盘页：导入面经 → 生成复盘 + 行动清单 |
-| `src/pages/WarRoomPage.tsx` | 求职作战室：岗位库浏览、规划、进度总览 |
-| `src/pages/HistoryPage.tsx` | 历史记录：过往面试场次与报告回看 |
-| `src/pages/ProfilePage.tsx` | 我的档案：上传简历 PDF 自动解析、编辑技能栈/项目、粘贴 JD 生成画像 |
-| `dist/` | Vite 构建产物（已入库，CI 保证最新） |
-
-### `data/` — 数据资产（RAG 知识库 + 题库 + 岗位库）
-
-| 文件 | 作用 |
-| --- | --- |
-| `knowledge/*.md` | 8 份面试知识库（Python / 数据库 / 网络 / 操作系统 / AI Agent / 面试方法论 / 求职规划 / 项目深挖），RAG 检索数据源 |
-| `packs/*.md` | 岗位问题包 playbook：轮次结构 / 题库 / 考察信号 / 常见坑（AI 应用开发实习 / Python 后端实习），注入出题提示词 |
-| `questions.json` | **98 道面试题**（含主题、难度、参考答案），Agent 抽题与题库兜底出题的数据源 |
-| `jobs.json` | **16 条实习岗位**样本数据，求职顾问查询用 |
-
-### `scripts/` 与 `tests/` — 评估与测试
-
-| 文件 | 作用 |
-| --- | --- |
-| `scripts/eval_rag.py` | RAG 检索质量评测：14 条 query → 期望来源文档，输出 Recall@K / MRR（实测 0.929 / 0.750）。**离线可跑，不需要 API Key** |
-| `scripts/eval_agent.py` | 多 Agent 评测：16 条意图测路由准确率 / 工具准确率 / 回答完整率（实测全 100%）。需要 API Key |
-| `scripts/eval_interview.py` | 面试闭环评测：出题 / 点评追问 / 评分 / 复盘结构完整率。需要 API Key |
-| `tests/conftest.py` | pytest 公共 fixture |
-| `tests/test_harness.py` | 主管路由 / 专员权限 / 记忆注入测试 |
-| `tests/test_interview.py` | prep-live-post 面试闭环测试 |
-| `tests/test_profile.py` | 档案读写 / 简历解析测试 |
-| `tests/test_rag.py` | RAG 分块 / 检索 / 降级测试 |
-| `tests/test_review_store.py` | 复盘存储测试 |
-
-## 架构
-
-```mermaid
-flowchart LR
-    U[用户] --> R[主管 Agent 路由]
-    R -->|delegate| I[模拟面试官]
-    R -->|delegate| T[八股讲师]
-    R -->|delegate| C[求职顾问]
-    I --> Q[query_question 题库]
-    I --> K[search_knowledge RAG]
-    C --> J[query_job 岗位库]
-    C --> K
-    T --> K
-    K --> KB[(知识库 + FAISS)]
-    Q --> QB[(questions.json)]
-    J --> JB[(jobs.json)]
-    P[个人档案] -.注入提示词与出题.-> I
-    P -.-> C
-    I --> S[面试闭环状态机]
-    S --> V[评分/对比/复盘]
-    V --> DB[(SQLite)]
-    DB --> W[求职作战室]
-```
-
-## 面试怎么讲
-
-这个项目本身是你面试的最大素材，建议按这个顺序讲：
-
-1. **一句话定位**：面向 AI 开发实习的多 Agent + RAG 面试陪练，绑定了我的真实项目做个性化深挖，并给出可量化的成长曲线。
-2. **为什么手写 Harness 不用 LangGraph**：学习项目目标是理解底层——tool_calls 解析、路由、记忆注入、轨迹。手写代码可控、可测试、可讲原理；工程上也会评估框架，这是取舍能力的体现。
-3. **RAG 为什么用混合检索 + RRF**：关键词擅长精确匹配（专有名词、编号），向量擅长语义召回；RRF 融合两路结果（score = Σ 1/(k+rank)），避免新词/错别字导致召回失败。用 Recall@K / MRR 量化验证，而不是拍脑袋。
-4. **面试闭环怎么设计**：状态机管理「出题→作答→点评→评分」，考核与面试解耦；历史对比让训练效果可感知。
-5. **档案驱动的个性化**：面试官提示词注入候选人档案，出题时插入约 30% 项目深挖题；项目题 LLM 定制失败会自动回退模板，保证流程不中断。
-6. **prep/live/post 与评分标准**：借鉴 DeepInterview 的三段式（面试前重推理、面试中轻量、面试后重推理）与 rubric 评分；借鉴聆悟的自然语言面试设计与统一评分标准。面试前解析 JD 与档案做差距分析，每道题带评分标准，逐题 0-5 分，弱能力自动生成学习教练计划。
-7. **工程细节与反思**：embedding 模型单例缓存（修掉每次检索重复加载模型的问题）、LLM 重试与多级降级、23 项测试覆盖核心链路；诚实说明边界（并发与安全是二期方向）。
-
-## 面试记录在哪里
-
-所有数据存本地 SQLite（`data/interview.db`）：会话历史、面试场次、问答记录、个人档案、面经复盘，删除对应记录即可清理。
-
-## 进阶方向（二期）
-
-- FastAPI + 独立前端，云端多人使用
-- 简历自动解析 + 岗位匹配度打分
-- 多模型切换与语音面试
+MIT
