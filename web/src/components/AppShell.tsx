@@ -8,13 +8,12 @@ import {
   FileText,
 } from "lucide-react";
 
-export type PageKey = "chat" | "interview" | "review" | "war" | "history" | "profile";
+export type PageKey = "chat" | "interview" | "war" | "history" | "profile";
 
 const NAV: Array<{ key: PageKey; label: string; icon: typeof MessageSquare }> = [
   { key: "chat", label: "自由对话", icon: MessageSquare },
   { key: "interview", label: "模拟面试", icon: ClipboardList },
-  { key: "review", label: "面经复盘", icon: FileText },
-  { key: "war", label: "求职作战室", icon: LayoutDashboard },
+  { key: "war", label: "复盘与作战室", icon: LayoutDashboard },
   { key: "history", label: "历史报告", icon: History },
   { key: "profile", label: "我的档案", icon: UserRound },
 ];
@@ -22,8 +21,7 @@ const NAV: Array<{ key: PageKey; label: string; icon: typeof MessageSquare }> = 
 const TITLES: Record<PageKey, { eyebrow: string; title: string; desc: string }> = {
   chat: { eyebrow: "Free Chat", title: "自由对话", desc: "多 Agent 协作：面试官 / 八股讲师 / 求职顾问" },
   interview: { eyebrow: "Mock Interview", title: "模拟面试", desc: "JD 画像 + 项目深挖 + 评分标准驱动的完整闭环" },
-  review: { eyebrow: "Review", title: "面经复盘", desc: "把真实面试经历贴进来，AI 生成复盘与行动清单" },
-  war: { eyebrow: "War Room", title: "求职作战室", desc: "得分趋势 / 薄弱维度 / 待办清单 / 复盘归档" },
+  war: { eyebrow: "Insights", title: "复盘与作战室", desc: "得分趋势 / 薄弱维度 / 待办清单 / 面经复盘" },
   history: { eyebrow: "History", title: "历史报告", desc: "回看历次面试的评分报告与问答记录" },
   profile: { eyebrow: "Profile", title: "我的档案", desc: "目标岗位 + 项目经历 + 目标 JD，驱动个性化出题" },
 };

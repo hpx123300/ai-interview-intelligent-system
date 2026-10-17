@@ -3,8 +3,7 @@ import AppShell, { type PageKey } from "./components/AppShell";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ChatPage from "./pages/ChatPage";
 import InterviewPage from "./pages/InterviewPage";
-import ReviewPage from "./pages/ReviewPage";
-import WarRoomPage from "./pages/WarRoomPage";
+import InsightsPage from "./pages/InsightsPage";
 import HistoryPage from "./pages/HistoryPage";
 import ProfilePage from "./pages/ProfilePage";
 
@@ -24,8 +23,7 @@ export default function App() {
       <ErrorBoundary key={`${page}-${epoch}`} onReset={() => setEpoch((n) => n + 1)}>
         {page === "chat" && <ChatPage />}
         {page === "interview" && <InterviewPage />}
-        {page === "review" && <ReviewPage />}
-        {page === "war" && <WarRoomPage />}
+        {page === "war" && <InsightsPage />}
         {page === "history" && <HistoryPage />}
         {page === "profile" && <ProfilePage />}
       </ErrorBoundary>
