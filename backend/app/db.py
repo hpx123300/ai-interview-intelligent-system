@@ -72,6 +72,45 @@ class InterviewQA(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
 
+class LLMCall(Base):
+    """一次模型调用的成本与延迟记录（可观测性的原始数据）。
+
+    只存聚合需要的字段，不存 prompt 原文——原文可能含简历等个人信息，
+    落库会带来不必要的隐私面。
+    """
+
+    __tablename__ = "llm_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True, default="")
+    role: Mapped[str] = mapped_column(String(32), default="")
+    model: Mapped[str] = mapped_column(String(64), default="")
+    prompt_tokens: Mapped[int] = mapped_column(default=0)
+    completion_tokens: Mapped[int] = mapped_column(default=0)
+    latency_ms: Mapped[int] = mapped_column(default=0)
+    ok: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc), index=True
+    )
+
+
+class ToolCall(Base):
+    """一次工具调用的结果记录，用于统计各工具的成功率与耗时。"""
+
+    __tablename__ = "tool_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True, default="")
+    role: Mapped[str] = mapped_column(String(32), default="")
+    tool: Mapped[str] = mapped_column(String(64), index=True, default="")
+    ok: Mapped[bool] = mapped_column(default=True)
+    latency_ms: Mapped[int] = mapped_column(default=0)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc), index=True
+    )
+
+
 class UserProfile(Base):
     """候选人档案：目标岗位、技能栈、项目经历（个人画像，驱动个性化出题）。"""
 

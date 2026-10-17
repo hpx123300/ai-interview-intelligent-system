@@ -148,13 +148,90 @@ def test_graph_stream_direct_reply_still_emits_text():
 
 
 def test_graph_structure_is_explicit():
-    """图结构可被断言：一个入口、四个节点、专员到 END。"""
+    """图结构可被断言：一个入口、路由 + 确认 + 三个专员，专员到 END。"""
     harness = LangGraphHarness(memory=Memory("test_graph_structure", max_messages=10))
     shape = harness.describe_graph()
 
     assert shape["entry"] == ["router"]
-    assert set(shape["nodes"]) == {"router", "interviewer", "tutor", "career"}
-    assert len(shape["edges"]) == 4  # router 条件边 + 三个专员到 END
+    assert set(shape["nodes"]) == {"router", "confirm", "interviewer", "tutor", "career"}
+    # router→confirm、confirm 条件边、三个专员到 END
+    assert len(shape["edges"]) == 5
+    assert shape["checkpointer"] == "SqliteSaver"
+
+
+def _long_interview_mock(calls: dict):
+    """长面试场景的假模型：主管指派面试官，面试官先抽题再作答。"""
+
+    def fake_create(**kw):
+        system = kw["messages"][0]["content"]
+        if "负责判断用户意图" in system:
+            return make_chat_response(
+                make_message(
+                    None,
+                    [make_tool_call("delegate", {"agent": "interviewer", "task": "完整模拟面试"})],
+                )
+            )
+        if "模拟面试官" in system:
+            calls["interviewer"] += 1
+            if calls["interviewer"] == 1:
+                return make_chat_response(
+                    make_message(None, [make_tool_call("query_question", {"topic": "python"})])
+                )
+            return make_chat_response(make_message("第一题：说说 Python 的 GIL。", None))
+        return make_chat_response(make_message("兜底回复", None))
+
+    return fake_create
+
+
+def test_long_task_interrupts_then_resumes():
+    """长任务先中断确认，用户点「开始」后从断点继续，而不是重跑一遍路由。"""
+    calls = {"interviewer": 0}
+    patchers = patch_all_clients(_long_interview_mock(calls))
+    try:
+        harness = LangGraphHarness(memory=Memory("test_graph_interrupt", max_messages=20))
+        reply, _ = harness.chat("来一场完整的模拟面试")
+        # 中断时专员一次都没跑
+        assert calls["interviewer"] == 0
+        assert harness.pending_interrupt is not None
+        assert "确认现在开始" in harness.pending_interrupt["message"]
+        assert "确认现在开始" in reply
+
+        reply2, trace2 = harness.resume("开始")
+    finally:
+        stop_patchers(patchers)
+
+    assert "GIL" in reply2
+    assert harness.pending_interrupt is None
+    assert any("query_question" in t["content"] for t in trace2)
+
+
+def test_long_task_can_be_declined():
+    """用户选择「先不开始」时图直接结束，不调用专员。"""
+    calls = {"interviewer": 0}
+    patchers = patch_all_clients(_long_interview_mock(calls))
+    try:
+        harness = LangGraphHarness(memory=Memory("test_graph_decline", max_messages=20))
+        harness.chat("来一场完整的模拟面试")
+        reply, _ = harness.resume("先不开始")
+    finally:
+        stop_patchers(patchers)
+
+    assert calls["interviewer"] == 0
+    assert "随时可以开始" in reply
+
+
+def test_short_task_does_not_interrupt():
+    """普通出题不该被确认拦下——只有「完整面试」这类明确诉求才中断。"""
+    calls = {"interviewer": 0}
+    patchers = patch_all_clients(_long_interview_mock(calls))
+    try:
+        harness = LangGraphHarness(memory=Memory("test_graph_no_interrupt", max_messages=20))
+        reply, _ = harness.chat("出个 Python 题")
+    finally:
+        stop_patchers(patchers)
+
+    assert harness.pending_interrupt is None
+    assert "GIL" in reply
 
 
 def test_build_harness_switches_engine(monkeypatch):

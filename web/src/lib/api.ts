@@ -44,6 +44,83 @@ export interface FinishResult {
   comparison: Comparison;
 }
 
+export interface StreamHandlers {
+  onToken: (t: string) => void;
+  onTool: (label: string) => void;
+  onCards: (cards: ToolCard[]) => void;
+  onTrace: (trace: unknown[]) => void;
+  /** 图在确认节点中断：前端要弹出「开始 / 先不开始」 */
+  onConfirm?: (payload: { thread_id: string; message: string; options: string[] }) => void;
+  /** 本轮 token 与成本，用来在气泡下方显示「这轮花了多少钱」 */
+  onUsage?: (usage: { prompt_tokens: number; completion_tokens: number; latency_ms: number; cost: number }) => void;
+}
+
+/**
+ * 统一消费 SSE。
+ * 抽出来是因为「首次对话」和「中断恢复」走的是同一套事件格式，
+ * 复制两份的话，以后加事件类型必然漏改一处。
+ */
+async function consumeSSE(
+  url: string,
+  body: unknown,
+  handlers: StreamHandlers,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`对话请求失败（${res.status}）`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const payload = trimmed.slice(5).trim();
+      if (!payload) continue;
+      try {
+        const msg = JSON.parse(payload);
+        if (msg.type === "token") {
+          full += msg.text;
+          handlers.onToken(msg.text);
+        } else if (msg.type === "tool") {
+          handlers.onTool(msg.label);
+        } else if (msg.type === "cards") {
+          handlers.onCards(msg.cards);
+        } else if (msg.type === "trace") {
+          handlers.onTrace(msg.trace);
+        } else if (msg.type === "confirm") {
+          handlers.onConfirm?.({
+            thread_id: msg.thread_id,
+            message: msg.message,
+            options: msg.options || ["开始", "先不开始"],
+          });
+        } else if (msg.type === "usage") {
+          handlers.onUsage?.(msg);
+        } else if (msg.type === "error") {
+          throw new Error(msg.error || "模型调用失败");
+        }
+      } catch (e) {
+        // 事件里的 error 要往外抛，其余解析失败当作脏帧忽略
+        if (e instanceof Error && e.message && !e.message.includes("JSON")) throw e;
+      }
+    }
+  }
+  return full;
+}
+
 export const api = {
   getProfile: () => request<Profile>("/api/profile"),
   saveProfile: (p: Partial<Profile>) =>
@@ -119,57 +196,29 @@ export const api = {
   deleteReview: (id: number) =>
     request<{ ok: boolean }>(`/api/reviews/${id}`, { method: "DELETE" }),
 
-  async streamChat(
+  streamChat(
     prompt: string,
     sessionId: string,
-    handlers: {
-      onToken: (t: string) => void;
-      onTool: (label: string) => void;
-      onCards: (cards: ToolCard[]) => void;
-      onTrace: (trace: unknown[]) => void;
-    },
+    handlers: StreamHandlers,
+    signal?: AbortSignal,
   ): Promise<string> {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, session_id: sessionId }),
-    });
-    if (!res.ok || !res.body) {
-      throw new Error(`对话请求失败（${res.status}）`);
-    }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let full = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) continue;
-        const payload = trimmed.slice(5).trim();
-        if (!payload) continue;
-        try {
-          const msg = JSON.parse(payload);
-          if (msg.type === "token") {
-            full += msg.text;
-            handlers.onToken(msg.text);
-          } else if (msg.type === "tool") {
-            handlers.onTool(msg.label);
-          } else if (msg.type === "cards") {
-            handlers.onCards(msg.cards);
-          } else if (msg.type === "trace") {
-            handlers.onTrace(msg.trace);
-          }
-        } catch {
-          // ignore malformed frames
-        }
-      }
-    }
-    return full;
+    return consumeSSE("/api/chat", { message: prompt, session_id: sessionId }, handlers, signal);
+  },
+
+  /** 从 LangGraph 的中断点恢复：用户点了「开始」或「先不开始」 */
+  resumeChat(
+    sessionId: string,
+    threadId: string,
+    value: string | boolean,
+    handlers: StreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    return consumeSSE(
+      "/api/chat/resume",
+      { session_id: sessionId, thread_id: threadId, value },
+      handlers,
+      signal,
+    );
   },
 
   getChatHistory: (sessionId: string) =>

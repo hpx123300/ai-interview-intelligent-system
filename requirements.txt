@@ -4,6 +4,8 @@ python-dotenv>=1.0
 # 可选编排引擎：AGENT_ENGINE=langgraph 时启用（graph.py）
 # 默认的 custom 引擎不依赖它，但测试要跑 LangGraph 分支，所以一并安装
 langgraph>=1.0
+# LangGraph 的 SQLite 检查点：支持断点续答与人工介入后的恢复
+langgraph-checkpoint-sqlite>=3.0
 
 # 数据与检索（jieba 关键词检索兜底；向量检索见 requirements-rag.txt）
 jieba>=0.42

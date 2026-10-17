@@ -1,14 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Plus, BookOpen, Briefcase } from "lucide-react";
+import { Send, Sparkles, Plus, BookOpen, Briefcase, Square, Play } from "lucide-react";
 import { api, clearChatHistory, loadChatHistory, saveChatHistory } from "../lib/api";
 import type { ChatMessage, ToolCard } from "../lib/types";
 import { Button, Card } from "../components/ui";
 
 const QUICK = ["模拟一场 Python 后端面试", "讲讲 RAG 的原理", "广州有哪些大模型实习"];
 
+interface Usage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost: number;
+}
+
 interface UiMessage extends ChatMessage {
   cards?: ToolCard[];
   trace?: unknown[];
+  usage?: Usage;
+}
+
+interface PendingConfirm {
+  thread_id: string;
+  message: string;
+  options: string[];
 }
 
 export default function ChatPage() {
@@ -16,8 +29,10 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [toolLabel, setToolLabel] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
   const [sessionId, setSessionId] = useState<string>(() => localStorage.getItem("chat_session") || "");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let sid = sessionId;
@@ -41,36 +56,47 @@ export default function ChatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, toolLabel]);
+  }, [messages, toolLabel, pendingConfirm]);
 
-  async function send(prompt: string) {
-    const text = prompt.trim();
-    if (!text || busy) return;
-    setInput("");
-    const next: UiMessage[] = [...messages, { role: "user", content: text }];
-    setMessages(next);
-    saveChatHistory(next.map(({ role, content }) => ({ role, content })));
+  /** 统一的流式消费：首轮对话与中断恢复共用，避免两处逻辑走偏。 */
+  async function runStream(
+    starter: (handlers: Parameters<typeof api.streamChat>[2], signal: AbortSignal) => Promise<string>,
+  ) {
     setBusy(true);
+    setPendingConfirm(null);
     const assistant: UiMessage = { role: "assistant", content: "" };
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      await api.streamChat(text, sessionId, {
-        onToken: (t) => {
-          assistant.content += t;
-          setMessages((prev) => {
-            return [...prev.slice(0, -1), { ...assistant }];
-          });
+      await starter(
+        {
+          onToken: (t) => {
+            assistant.content += t;
+            setMessages((prev) => [...prev.slice(0, -1), { ...assistant }]);
+          },
+          onTool: (label) => setToolLabel(label),
+          onCards: (cards) => {
+            assistant.cards = cards;
+          },
+          onTrace: (trace) => {
+            assistant.trace = trace;
+          },
+          onConfirm: (payload) => setPendingConfirm(payload),
+          onUsage: (u) => {
+            assistant.usage = u;
+          },
         },
-        onTool: (label) => setToolLabel(label),
-        onCards: (cards) => {
-          assistant.cards = cards;
-        },
-        onTrace: (trace) => {
-          assistant.trace = trace;
-        },
-      });
+        controller.signal,
+      );
     } catch (e) {
-      assistant.content = `出错了：${(e as Error).message}`;
+      const aborted = (e as Error).name === "AbortError";
+      if (aborted) {
+        assistant.content += assistant.content ? "\n\n（已停止生成）" : "（已停止生成）";
+      } else {
+        assistant.content = `出错了：${(e as Error).message}`;
+      }
     } finally {
+      abortRef.current = null;
       setToolLabel(null);
       setBusy(false);
       setMessages((prev) => {
@@ -84,6 +110,27 @@ export default function ChatPage() {
         return copy;
       });
     }
+  }
+
+  async function send(prompt: string) {
+    const text = prompt.trim();
+    if (!text || busy) return;
+    setInput("");
+    const next: UiMessage[] = [...messages, { role: "user", content: text }, { role: "assistant", content: "" }];
+    setMessages(next);
+    saveChatHistory(next.map(({ role, content }) => ({ role, content })));
+    await runStream((handlers, signal) => api.streamChat(text, sessionId, handlers, signal));
+  }
+
+  /** 用户点了确认卡片上的按钮：从中断点继续，而不是重新发一遍消息。 */
+  async function decide(value: string) {
+    if (!pendingConfirm || busy) return;
+    const confirm = pendingConfirm;
+    setPendingConfirm(null);
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+    await runStream((handlers, signal) =>
+      api.resumeChat(sessionId, confirm.thread_id, value, handlers, signal),
+    );
   }
 
   return (
@@ -117,6 +164,25 @@ export default function ChatPage() {
           <MessageBubble key={i} message={m} />
         ))}
 
+        {pendingConfirm && (
+          <Card className="!p-4 border-accent/30 bg-accent-soft/40">
+            <div className="text-[13px] text-ink">{pendingConfirm.message}</div>
+            <div className="flex gap-2 mt-3">
+              {pendingConfirm.options.map((opt, i) => (
+                <Button
+                  key={opt}
+                  variant={i === 0 ? "primary" : "ghost"}
+                  onClick={() => decide(opt)}
+                  disabled={busy}
+                >
+                  {i === 0 && <Play size={13} />}
+                  {opt}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {busy && (
           <div className="flex items-center gap-2 text-[12.5px] text-muted pl-1">
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -146,6 +212,7 @@ export default function ChatPage() {
                 setSessionId(sid);
                 clearChatHistory();
                 setMessages([]);
+                setPendingConfirm(null);
               }}
               className="btn btn-ghost !px-2.5 text-[12px]"
               title="清空对话"
@@ -153,10 +220,17 @@ export default function ChatPage() {
               <Plus size={14} className="rotate-45" />
             </button>
           )}
-          <Button variant="primary" onClick={() => send(input)} disabled={busy || !input.trim()}>
-            <Send size={14} />
-            发送
-          </Button>
+          {busy ? (
+            <Button variant="ghost" onClick={() => abortRef.current?.abort()}>
+              <Square size={12} />
+              停止
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={() => send(input)} disabled={!input.trim()}>
+              <Send size={14} />
+              发送
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -197,6 +271,12 @@ function MessageBubble({ message }: { message: UiMessage }) {
           {message.content || (message.trace ? "" : "…")}
         </div>
         {message.cards?.map((card, i) => <ToolCards key={i} card={card} />)}
+        {message.usage && (
+          <div className="mt-1.5 text-[11px] text-faint pl-1">
+            本轮 {message.usage.prompt_tokens + message.usage.completion_tokens} tokens · ¥
+            {message.usage.cost.toFixed(4)}
+          </div>
+        )}
         {tools.length > 0 && (
           <details className="mt-1.5 text-[11.5px] text-faint">
             <summary className="cursor-pointer select-none">服务明细（{tools.length} 步）</summary>

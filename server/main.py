@@ -25,6 +25,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.app.agent.core import AgentError, build_harness, current_engine  # noqa: E402
 from backend.app.agent.memory import Memory  # noqa: E402
+from backend.app.agent.roles import PROMPT_VERSION  # noqa: E402
+from backend.app import metrics  # noqa: E402
+from backend.app.weakness import build_summary as build_weakness_summary  # noqa: E402
 from backend.app.cards import parse_trace_cards  # noqa: E402
 from backend.app.chat_history import clear_messages, load_messages, save_message  # noqa: E402
 from backend.app.db import init_db  # noqa: E402
@@ -65,7 +68,17 @@ OCR_SWIFT = Path(__file__).resolve().parent / "ocr_vision.swift"
 # ---------------- 健康检查 ----------------
 @app.get("/api/health")
 def health():
-    return {"ok": True, "engine": current_engine()}
+    return {
+        "ok": True,
+        "engine": current_engine(),
+        "prompt_version": PROMPT_VERSION,
+    }
+
+
+@app.get("/api/weakness")
+def weakness_summary():
+    """跨场次弱点画像：维度短板 + 反复出现的问题，也用于前端展示。"""
+    return build_weakness_summary()
 
 
 # ---------------- JD 图片 OCR ----------------
@@ -151,7 +164,6 @@ async def chat(req: ChatRequest):
 
     def gen():
         full = ""
-        cards_sent = False
         try:
             yield f"data: {json.dumps({'type': 'session', 'session_id': session_id}, ensure_ascii=False)}\n\n"
             for chunk in agent.chat_stream(req.message, on_tool=lambda name: None):
@@ -163,8 +175,14 @@ async def chat(req: ChatRequest):
                 yield f"data: {json.dumps({'type': 'trace', 'trace': trace}, ensure_ascii=False)}\n\n"
             cards = parse_trace_cards(trace)
             if cards:
-                cards_sent = True
                 yield f"data: {json.dumps({'type': 'cards', 'cards': cards}, ensure_ascii=False)}\n\n"
+            # 中断：图停在确认节点，把 thread_id 交给前端，点按钮后走 /api/chat/resume
+            pending = getattr(agent, "pending_interrupt", None)
+            if pending:
+                yield f"data: {json.dumps({'type': 'confirm', 'thread_id': getattr(agent, 'thread_id', ''), **pending}, ensure_ascii=False)}\n\n"
+            usage = getattr(agent, "usage", None) or {}
+            if usage.get("prompt_tokens") or usage.get("completion_tokens"):
+                yield f"data: {json.dumps({'type': 'usage', **usage, 'cost': metrics.estimate_cost(usage.get('prompt_tokens', 0), usage.get('completion_tokens', 0))}, ensure_ascii=False)}\n\n"
             if full:
                 save_message(session_id, "assistant", full)
             yield "data: {\"type\": \"done\"}\n\n"
@@ -172,6 +190,59 @@ async def chat(req: ChatRequest):
             yield f"data: {json.dumps({'type': 'error', 'error': str(exc)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+class ResumeRequest(BaseModel):
+    session_id: str
+    thread_id: str
+    value: Any = True
+
+
+@app.post("/api/chat/resume")
+def chat_resume(req: ResumeRequest):
+    """从 LangGraph 的中断点恢复（用户点了「开始」或「先不开始」）。
+
+    状态存在 SQLite 检查点里，所以不需要保持进程内的对象引用——
+    换一个 harness 实例、甚至服务重启过，只要 thread_id 对得上就能续。
+    """
+    if current_engine() != "langgraph":
+        return JSONResponse(
+            {"error": "当前编排引擎不是 langgraph，中断恢复不可用；请设置 AGENT_ENGINE=langgraph"},
+            status_code=400,
+        )
+    try:
+        agent = build_harness(memory=Memory(req.session_id, max_messages=40))
+    except AgentError as exc:
+        return _err(exc, 400)
+    agent.thread_id = req.thread_id
+
+    def gen():
+        full = ""
+        try:
+            for chunk in agent.resume_stream(req.value):
+                if chunk:
+                    full += chunk
+                    yield f"data: {json.dumps({'type': 'token', 'text': chunk}, ensure_ascii=False)}\n\n"
+            trace = list(agent.trace)
+            if trace:
+                yield f"data: {json.dumps({'type': 'trace', 'trace': trace}, ensure_ascii=False)}\n\n"
+            pending = getattr(agent, "pending_interrupt", None)
+            if pending:
+                yield f"data: {json.dumps({'type': 'confirm', 'thread_id': getattr(agent, 'thread_id', ''), **pending}, ensure_ascii=False)}\n\n"
+            if full:
+                save_message(req.session_id, "assistant", full)
+            yield "data: {\"type\": \"done\"}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"data: {json.dumps({'type': 'error', 'error': str(exc)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ---------------- 可观测性 ----------------
+@app.get("/api/metrics")
+def api_metrics(days: int = 7):
+    """成本、延迟分位、分角色与分工具明细。面试时可以直接指着这个答数字。"""
+    return metrics.summary(days=max(1, min(days, 90)))
 
 
 # ---------------- 对话历史 ----------------

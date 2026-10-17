@@ -2,11 +2,13 @@
 
 import json
 import re
+import time
 from types import SimpleNamespace
 from typing import Callable
 
 from openai import OpenAI
 
+from .. import metrics
 from ..config import AGENT_MAX_ITERATIONS, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from ..llm_utils import with_retry
 from .memory import Memory
@@ -48,9 +50,30 @@ class AgentLoop:
         self.client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
         self.model = DEEPSEEK_MODEL
         self.trace: list[dict] = []
+        # 观测用：把会话与角色带到指标层，才能回答「哪个角色最贵、哪个工具最慢」
+        self.session_id = getattr(self.memory, "session_id", "") or ""
+        self.role = name
+        # 本轮累计的 token 与耗时，供上层读取（流式路径只能在这里汇总）
+        self.usage = {"prompt_tokens": 0, "completion_tokens": 0, "latency_ms": 0}
 
     def _record(self, step: str, content: str) -> None:
         self.trace.append({"step": step, "content": content})
+
+    def _account_usage(self, usage, latency_ms: int) -> None:
+        """把一次调用的 token 与耗时累加进本轮统计，并落一条明细。"""
+        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0
+        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0
+        self.usage["prompt_tokens"] += prompt_tokens
+        self.usage["completion_tokens"] += completion_tokens
+        self.usage["latency_ms"] += latency_ms
+        metrics.record_llm_call(
+            session_id=self.session_id,
+            role=self.role,
+            model=self.model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            latency_ms=latency_ms,
+        )
 
     def _build_messages(self) -> list[dict]:
         """拼装本轮请求的消息序列（系统提示 + 经过安全修剪的记忆）。"""
@@ -66,6 +89,7 @@ class AgentLoop:
 
     @with_retry()
     def _call_llm(self, messages: list[dict]) -> dict:
+        started = time.perf_counter()
         resp = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -73,10 +97,14 @@ class AgentLoop:
             tool_choice="auto",
             temperature=self.temperature,
         )
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        self._account_usage(getattr(resp, "usage", None), latency_ms)
         return resp.choices[0].message
 
     @with_retry()
     def _create_stream(self, messages: list[dict]):
+        # include_usage 让最后一个 chunk 带上 token 用量；部分兼容实现不支持，
+        # 调用方会退化成「本次不计 token」，不会因此失败。
         return self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -84,6 +112,7 @@ class AgentLoop:
             tool_choice="auto",
             temperature=self.temperature,
             stream=True,
+            stream_options={"include_usage": True},
         )
 
     def _execute_tool(self, tool_call) -> str:
@@ -94,16 +123,24 @@ class AgentLoop:
             arguments = {}
         func: Callable | None = self.tool_functions.get(name)
         if func is None:
+            # 未知工具也要记一笔：它通常意味着模型在幻觉工具名
+            metrics.record_tool_call(self.session_id, self.role, name or "unknown", False, 0, "未知工具")
             return f"错误：未知工具 {name}"
+        started = time.perf_counter()
         try:
             result = func(**arguments)
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            metrics.record_tool_call(self.session_id, self.role, name, True, latency_ms)
             self._record("tool", f"{name}({json.dumps(arguments, ensure_ascii=False)}) -> {result}")
             return result
         except Exception as exc:
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            metrics.record_tool_call(self.session_id, self.role, name, False, latency_ms, str(exc))
             return f"工具执行失败：{exc}"
 
     def chat(self, user_message: str, on_tool: Callable[[str], None] | None = None) -> tuple[str, list[dict]]:
         self.trace = []
+        self.usage = {"prompt_tokens": 0, "completion_tokens": 0, "latency_ms": 0}
         self.memory.add({"role": "user", "content": user_message})
         messages = self._build_messages()
         for _ in range(self.max_iterations):
@@ -129,14 +166,22 @@ class AgentLoop:
     def chat_stream(self, user_message: str, on_tool: Callable[[str], None] | None = None):
         """流式版：工具调用轮不产出文本，最终回答逐块 yield。"""
         self.trace = []
+        self.usage = {"prompt_tokens": 0, "completion_tokens": 0, "latency_ms": 0}
         self.memory.add({"role": "user", "content": user_message})
         messages = self._build_messages()
         for _ in range(self.max_iterations):
             self._record("think", "正在分析问题并决定是否调用工具…")
             content = ""
             tool_calls: list[dict] = []
+            usage = None
+            started = time.perf_counter()
             stream = self._create_stream(messages)
             for chunk in stream:
+                # 开了 include_usage 后，最后一个 chunk 的 choices 是空数组、只带 usage，
+                # 直接取 choices[0] 会 IndexError，必须先判空。
+                if not getattr(chunk, "choices", None):
+                    usage = getattr(chunk, "usage", None) or usage
+                    continue
                 choice = chunk.choices[0]
                 delta = choice.delta
                 if delta and delta.content:
@@ -153,6 +198,7 @@ class AgentLoop:
                             tool_calls[idx]["name"] = tc.function.name
                         if tc.function and tc.function.arguments:
                             tool_calls[idx]["arguments"] += tc.function.arguments
+            self._account_usage(usage, int((time.perf_counter() - started) * 1000))
             if not tool_calls:
                 content = strip_thought(content)
                 self.memory.add({"role": "assistant", "content": content})

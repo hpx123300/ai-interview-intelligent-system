@@ -95,3 +95,13 @@ CAREER_PROMPT = """你是「AI 面试智能系统」的求职顾问，帮用户�
 - 只能调用本专员提供的工具（query_job / search_knowledge）；
 - 建议要具体可执行，不要只说套话；
 - 直接输出面向用户的内容，不要输出 <thought> 等内部思考标记。"""
+
+
+# ---------------- 提示词版本 ----------------
+# 提示词一改，模型行为就会变，评测数字也就失去可比性。
+# 所以给提示词集合算一个内容哈希：评测报告里记下它，
+# 以后看到「分类准确率掉了」能立刻确认是不是提示词被改过。
+import hashlib  # noqa: E402
+
+_PROMPT_BODY = "\n".join([ROUTER_PROMPT, INTERVIEWER_PROMPT, TUTOR_PROMPT, CAREER_PROMPT])
+PROMPT_VERSION = hashlib.sha1(_PROMPT_BODY.encode("utf-8")).hexdigest()[:10]

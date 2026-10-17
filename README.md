@@ -86,11 +86,33 @@ AGENT_ENGINE=langgraph   # LangGraph 状态图
 - `agent/harness.py`（自研）：用普通函数串起「主管路由 → 专员执行」，状态靠对象属性隐式传递。逻辑直白，但新增角色要改 if/else，状态不可见。
 - `agent/graph.py`（LangGraph）：把状态显式建成 `AgentState`，路由用条件边表达，每个专员是独立节点。流式用 `stream_mode=["custom","values"]`，同时拿到 token 流和最终状态（含轨迹）。
 
-为什么两套都留着：手写版是为了搞清底层机制，LangGraph 版是为了拿到显式状态、可视化的图结构，以及后续接检查点、人工介入的能力。写完之后对「框架到底帮你做了什么」有第一手判断，而不是二选一。
+为什么两套都留着：手写版是为了搞清底层机制，LangGraph 版是为了拿到显式状态、可视化的图结构，以及检查点与人工介入能力。写完之后对「框架到底帮你做了什么」有第一手判断，而不是二选一。
+
+LangGraph 版真正用上的两个框架能力，不是把 if/else 画成图：
+
+- **检查点**：`SqliteSaver` 把每轮图状态落到 `data/agent_checkpoints.db`，`thread_id` 按「会话 + 单轮」生成。一轮之内的断点续答与事后回放都成立，跨轮记忆仍由 `Memory` + `chat_history` 负责，职责不重叠。
+- **中断**：用户说「完整面试 / 正式面试」这类长任务时，图在 `confirm` 节点 `interrupt()`，前端弹出「预计 15 分钟，是否开始」；用户点按钮后走 `/api/chat/resume`，用 `Command(resume=...)` 从断点继续。`confirm` 节点必须幂等——恢复时 LangGraph 会重放它，所以 `interrupt()` 之前不能有任何副作用。
 
 `agent/loop.py` 本身仍然是完整的工具调用循环，包含**流式场景下的 tool_calls 分片拼装**：流式返回时工具参数分片到达，需按 `index` 聚合、按 `id` 归并后才能执行。同步与流式两条路径共用同一套工具执行与轨迹记录逻辑。
 
-### 2. 混合检索与 RRF
+### 2. 成本与延迟可观测
+
+`backend/app/metrics.py` 记录每次模型调用的 token、耗时，以及每次工具调用的成功与否：
+
+- 调用明细落 SQLite（`llm_calls` / `tool_calls`），只存聚合字段，**不存 prompt 原文**——原文可能含简历等个人信息；
+- `/api/metrics` 输出调用数、成本、P50/P95 延迟、分角色与分工具明细；
+- 流式路径开了 `stream_options={"include_usage": true}`，最后一个 chunk 的 `choices` 是空数组、只带 `usage`，取 `choices[0]` 会 IndexError，必须先判空；
+- 统计写入吞掉所有异常：观测层自己不能变成故障点。
+
+单价走环境变量（`LLM_PRICE_INPUT_PER_M` / `LLM_PRICE_OUTPUT_PER_M`），供应商调价不用改代码。
+
+### 3. 跨场次弱点画像
+
+`backend/app/weakness.py` 把最近 5 场面试报告聚合出维度短板与高频问题，注入面试官与求职顾问的提示词。
+
+刻意不用向量库：评分维度、建议条目都是结构化数据，SQL 聚合比语义检索更准，也更容易解释「这条建议为什么会出现」。建议条目按跨场次出现次数排序——出现一次的通常是那场题目的偶发问题，重复出现的才是稳定短板。
+
+### 4. 混合检索与 RRF
 
 `backend/app/agent/rag.py`：
 
@@ -99,13 +121,21 @@ AGENT_ENGINE=langgraph   # LangGraph 状态图
 - **向量召回**：m3e-base 编码 + FAISS 内积索引；索引持久化，文档指纹变更后自动重建
 - **融合**：RRF（Reciprocal Rank Fusion，k=60）合并双路排名，无需归一化不同量纲的分数
 
-### 3. 消息序列安全截断
+### 5. 消息序列安全截断
 
 `backend/app/agent/memory.py`：大模型 API 要求「tool 消息必须紧跟带 tool_calls 的 assistant 消息」「每个 tool_call_id 都要有响应」。按条数硬截断会破坏这两种配对并导致 400 错误，因此在出参前统一做一次安全修剪。
 
 ## 评测
 
-所有指标可用脚本复现，**口径写在脚本头部**。
+一条命令跑完全部，带阈值与基线对比：
+
+```bash
+python scripts/eval_all.py --offline    # 只跑检索层，不调用模型、不花钱
+python scripts/eval_all.py --save       # 全量，结果写入 data/eval/reports/
+python scripts/eval_all.py --baseline data/eval/reports/20261017_220010.json
+```
+
+每个指标都有下限，低于下限退出码为 1，所以能直接挂 CI。报告里记录提示词版本哈希与 git commit——提示词一改行为就变，没有版本号的评测数字是不可比的。
 
 ### RAG 检索（`python scripts/eval_rag.py`）
 
@@ -122,10 +152,16 @@ AGENT_ENGINE=langgraph   # LangGraph 状态图
 
 50 道题覆盖 4 类意图（面试官 / 讲师 / 顾问 / 直接回复），输出路由准确率、工具准确率、回答完整率。该脚本会真实调用大模型 API。
 
+### 面试闭环（`python scripts/eval_interview.py`）
+
+检查出题字段完整率、点评追问完整率、评分结构完整率、复盘结构完整率。同样需要真实调用。
+
+CI 里只跑 `--offline` 的检索层：它确定性、免费，适合当回归门槛；另两项要真调 API，按需在本地跑。
+
 ## 测试
 
 ```bash
-pytest tests/ -q      # 28 项：路由与专员协作、LangGraph 编排、记忆回填、RAG 分块与检索、档案与复盘存储
+pytest tests/ -q      # 36 项：路由与专员协作、LangGraph 编排与中断恢复、成本记账、记忆回填、RAG 分块与检索、档案与复盘存储
 ```
 
 ## 目录结构
@@ -135,7 +171,7 @@ backend/app/
   agent/
     loop.py         Function Calling 循环（同步 + 流式）
     harness.py      自研多 Agent 编排：主管路由 + 专员
-    graph.py        LangGraph 编排：StateGraph + 条件边（AGENT_ENGINE=langgraph）
+    graph.py        LangGraph 编排：StateGraph + 条件边 + 检查点 + 中断（AGENT_ENGINE=langgraph）
     core.py         编排引擎统一入口 build_harness()
     roles.py        各角色提示词与工具子集
     rag.py          分块 + BM25 + 向量 + RRF
