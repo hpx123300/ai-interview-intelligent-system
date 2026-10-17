@@ -24,8 +24,9 @@
 - **后端**：FastAPI · SQLite（SQLAlchemy 2.x）· Pydantic
 - **前端**：React 18 · TypeScript · Vite
 - **大模型**：DeepSeek（OpenAI 兼容接口），支持流式输出
+- **编排**：自研主管路由 + **LangGraph 状态图**两种实现，环境变量切换
 - **检索**：jieba 分词 + **BM25** 关键词检索；可选 **FAISS + m3e 向量检索**，双路 **RRF** 融合
-- **工程化**：pytest（23 项）· GitHub Actions CI
+- **工程化**：pytest（28 项）· GitHub Actions CI
 
 ## 架构
 
@@ -71,11 +72,23 @@ pip install -r requirements-rag.txt   # faiss-cpu + sentence-transformers
 
 ## 核心设计
 
-### 1. 手写 Function Calling 循环，不依赖 LangGraph
+### 1. 两种编排实现：自研路由 vs LangGraph
 
-`backend/app/agent/loop.py` 实现了完整的工具调用循环，包含**流式场景下的 tool_calls 分片拼装**：流式返回时工具参数分片到达，需按 `index` 聚合、按 `id` 归并后才能执行。同步与流式两条路径共用同一套工具执行与轨迹记录逻辑。
+多 Agent 编排做了两套实现，对外接口完全一致（`chat` / `chat_stream` / `trace`），用环境变量切换：
 
-选择手写而非直接用 LangGraph，是为了彻底搞清 FC 的底层机制（消息序列构造、tool_calls 解析、结果回填、循环终止条件）。
+```bash
+AGENT_ENGINE=custom      # 默认，自研主管路由，零额外依赖
+AGENT_ENGINE=langgraph   # LangGraph 状态图
+```
+
+分工是清楚的：**LangGraph 只接管编排层，专员内部仍然复用同一个手写 Function Calling 循环**。所以两种引擎的工具执行、记忆、轨迹完全一致，差异只在「谁来调度」，可以拿同一套测试公平对比。
+
+- `agent/harness.py`（自研）：用普通函数串起「主管路由 → 专员执行」，状态靠对象属性隐式传递。逻辑直白，但新增角色要改 if/else，状态不可见。
+- `agent/graph.py`（LangGraph）：把状态显式建成 `AgentState`，路由用条件边表达，每个专员是独立节点。流式用 `stream_mode=["custom","values"]`，同时拿到 token 流和最终状态（含轨迹）。
+
+为什么两套都留着：手写版是为了搞清底层机制，LangGraph 版是为了拿到显式状态、可视化的图结构，以及后续接检查点、人工介入的能力。写完之后对「框架到底帮你做了什么」有第一手判断，而不是二选一。
+
+`agent/loop.py` 本身仍然是完整的工具调用循环，包含**流式场景下的 tool_calls 分片拼装**：流式返回时工具参数分片到达，需按 `index` 聚合、按 `id` 归并后才能执行。同步与流式两条路径共用同一套工具执行与轨迹记录逻辑。
 
 ### 2. 混合检索与 RRF
 
@@ -112,7 +125,7 @@ pip install -r requirements-rag.txt   # faiss-cpu + sentence-transformers
 ## 测试
 
 ```bash
-pytest tests/ -q      # 23 项：路由与专员协作、记忆回填、RAG 分块与检索、档案与复盘存储
+pytest tests/ -q      # 28 项：路由与专员协作、LangGraph 编排、记忆回填、RAG 分块与检索、档案与复盘存储
 ```
 
 ## 目录结构
@@ -121,7 +134,9 @@ pytest tests/ -q      # 23 项：路由与专员协作、记忆回填、RAG 分�
 backend/app/
   agent/
     loop.py         Function Calling 循环（同步 + 流式）
-    harness.py      多 Agent 编排：主管路由 + 专员
+    harness.py      自研多 Agent 编排：主管路由 + 专员
+    graph.py        LangGraph 编排：StateGraph + 条件边（AGENT_ENGINE=langgraph）
+    core.py         编排引擎统一入口 build_harness()
     roles.py        各角色提示词与工具子集
     rag.py          分块 + BM25 + 向量 + RRF
     memory.py       会话记忆与安全截断

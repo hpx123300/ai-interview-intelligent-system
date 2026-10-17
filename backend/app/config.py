@@ -16,6 +16,12 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 # Agent 单轮最大工具调用步数（防止死循环，可按需调大）
 AGENT_MAX_ITERATIONS = int(os.getenv("AGENT_MAX_ITERATIONS", "6"))
 
+# 多 Agent 编排引擎：
+#   custom    = 自研主管路由（harness.py），默认，零额外依赖
+#   langgraph = LangGraph 状态图（graph.py），需安装 langgraph
+# 两种引擎的专员、工具、记忆、轨迹完全一致，差异只在编排层，可公平对比。
+AGENT_ENGINE = os.getenv("AGENT_ENGINE", "custom").strip().lower()
+
 # 检索参数
 RAG_CHUNK_MAX_CHARS = int(os.getenv("RAG_CHUNK_MAX_CHARS", "500"))
 RAG_CHUNK_OVERLAP_CHARS = int(os.getenv("RAG_CHUNK_OVERLAP_CHARS", "80"))

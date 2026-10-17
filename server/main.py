@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.app.agent.core import AgentError, MultiAgentHarness  # noqa: E402
+from backend.app.agent.core import AgentError, build_harness, current_engine  # noqa: E402
 from backend.app.agent.memory import Memory  # noqa: E402
 from backend.app.cards import parse_trace_cards  # noqa: E402
 from backend.app.chat_history import clear_messages, load_messages, save_message  # noqa: E402
@@ -65,7 +65,7 @@ OCR_SWIFT = Path(__file__).resolve().parent / "ocr_vision.swift"
 # ---------------- 健康检查 ----------------
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "engine": current_engine()}
 
 
 # ---------------- JD 图片 OCR ----------------
@@ -144,7 +144,7 @@ async def chat(req: ChatRequest):
         return JSONResponse({"error": "消息不能为空"}, status_code=400)
     session_id = (req.session_id or "").strip() or f"web-{uuid.uuid4().hex[:8]}"
     try:
-        agent = MultiAgentHarness(memory=Memory(session_id, max_messages=40))
+        agent = build_harness(memory=Memory(session_id, max_messages=40))
     except AgentError as exc:
         return _err(exc, 400)
     save_message(session_id, "user", req.message.strip())
